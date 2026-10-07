@@ -1,0 +1,1519 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mutual Information Lab</title>
+<meta name="description" content="Interactive study guide for §6.3 of Murphy's Probabilistic Machine Learning: mutual information, conditional MI, the Gaussian case, the data processing inequality, and sufficient statistics.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<script>
+window.MathJax = {
+  loader: { load: ['[tex]/html'] },
+  tex: { packages: { '[+]': ['html'] }, inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+  svg: { fontCache: 'global' },
+  options: { enableMenu: false }
+};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js" async></script>
+<style>
+/* Layout: sticky chapter rail on the left + one reading column; every section runs Play → Math, slowly → Check yourself */
+:root {
+  --bg: #eef2f7; --surface: #ffffff; --sunk: #e3e9f1; --ink: #132030; --muted: #536275; --rule: #d3dbe6;
+  --x: #1f5fa8; --y: #c22f4b; --mi: #6a3fc1; --green: #1d7a49; --amber: #9a5a00;
+  --x-soft: rgba(31,95,168,.15); --y-soft: rgba(194,47,75,.13); --mi-soft: rgba(106,63,193,.15); --green-soft: rgba(29,122,73,.14); --amber-soft: rgba(154,90,0,.14);
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d131b; --surface: #141c27; --sunk: #1b2532; --ink: #e2e9f2; --muted: #93a2b5; --rule: #283546;
+    --x: #6ea8ec; --y: #f07688; --mi: #b393f2; --green: #52c48a; --amber: #e2a34b;
+    --x-soft: rgba(110,168,236,.2); --y-soft: rgba(240,118,136,.17); --mi-soft: rgba(179,147,242,.2); --green-soft: rgba(82,196,138,.16); --amber-soft: rgba(226,163,75,.17);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d131b; --surface: #141c27; --sunk: #1b2532; --ink: #e2e9f2; --muted: #93a2b5; --rule: #283546;
+  --x: #6ea8ec; --y: #f07688; --mi: #b393f2; --green: #52c48a; --amber: #e2a34b;
+  --x-soft: rgba(110,168,236,.2); --y-soft: rgba(240,118,136,.17); --mi-soft: rgba(179,147,242,.2); --green-soft: rgba(82,196,138,.16); --amber-soft: rgba(226,163,75,.17);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.6; margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 0 80px; display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 48px; }
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr); gap: 0; padding-inline: 16px; } .rail { display: none; } }
+
+/* top bar */
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); border-bottom: 1px solid var(--rule); }
+.topbar-in { max-width: 1180px; margin: 0 auto; padding: 10px 20px; display: flex; align-items: center; gap: 16px; }
+.brand { font-family: var(--display); font-weight: 800; font-size: 17px; letter-spacing: -.01em; white-space: nowrap; }
+.brand span { color: var(--mi); }
+.chips { display: none; overflow-x: auto; gap: 6px; flex: 1; min-width: 0; scrollbar-width: none; }
+.chips a { font-family: var(--mono); font-size: 12px; white-space: nowrap; padding: 4px 9px; border: 1px solid var(--rule); border-radius: 99px; color: var(--ink); text-decoration: none; }
+@media (max-width: 900px) { .chips { display: flex; } .topbar-in { padding: 10px 16px; } }
+.score { margin-left: auto; font-family: var(--mono); font-size: 12.5px; white-space: nowrap; padding: 5px 10px; border-radius: 99px; background: var(--surface); border: 1px solid var(--rule); }
+.score b { color: var(--green); }
+
+/* rail */
+.rail nav { position: sticky; top: 70px; padding-top: 40px; display: flex; flex-direction: column; gap: 2px; }
+.rail a { display: grid; grid-template-columns: 58px 1fr; gap: 4px; padding: 6px 8px; border-radius: 6px; color: var(--muted); text-decoration: none; font-family: var(--display); font-size: 14.5px; line-height: 1.3; }
+.rail a .n { font-family: var(--mono); font-size: 11.5px; padding-top: 2px; }
+.rail a:hover, .rail a.on { color: var(--ink); background: var(--sunk); }
+
+main { min-width: 0; }
+header.hero { padding-block: 48px 24px; border-bottom: 1px solid var(--rule); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 800; font-size: clamp(34px, 5.5vw, 58px); line-height: 1.02; letter-spacing: -.025em; margin: 10px 0 16px; text-wrap: balance; }
+h1 .x { color: var(--x); } h1 .y { color: var(--y); } h1 .m { color: var(--mi); }
+.lede { max-width: 64ch; color: var(--muted); font-size: 18px; margin: 0; }
+.legend3 { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 22px; font-family: var(--mono); font-size: 12.5px; }
+.legend3 span { display: inline-flex; align-items: center; gap: 8px; }
+.legend3 i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.hero-venn { display: block; width: 100%; max-width: 560px; height: auto; margin-top: 18px; }
+
+section.sec { padding-block: 56px 8px; border-bottom: 1px solid var(--rule); scroll-margin-top: 60px; }
+.sec-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.secnum { font-family: var(--mono); font-size: 13px; color: var(--mi); border: 1px solid currentColor; border-radius: 4px; padding: 1px 7px; }
+h2 { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 3.4vw, 36px); line-height: 1.1; letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+.intro { max-width: 66ch; }
+.intro p { margin: 12px 0; }
+
+.block { margin-top: 28px; }
+.blabel { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+.blabel::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+.blabel .tag { color: var(--surface); background: var(--ink); padding: 2px 7px; border-radius: 3px; letter-spacing: .06em; }
+.block.math .blabel .tag { background: var(--x); }
+.block.quiz .blabel .tag { background: var(--green); }
+.block.play .blabel .tag { background: var(--mi); }
+
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px; }
+.panel + .panel { margin-top: 16px; }
+.panel h4 { font-family: var(--display); font-weight: 700; font-size: 18px; margin: 0 0 4px; }
+.hint { font-size: 14.5px; color: var(--muted); margin: 0 0 12px; }
+.two { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+.two-even { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 760px) { .two, .two-even, .three { grid-template-columns: minmax(0, 1fr); } }
+.cap { font-family: var(--mono); font-size: 12px; color: var(--muted); margin: 0 0 4px; }
+.cap b { font-weight: 600; }
+
+svg.plot { width: 100%; height: auto; display: block; overflow: visible; }
+svg.grab { touch-action: none; cursor: ns-resize; }
+svg:focus-visible, button:focus-visible, input:focus-visible, .coin:focus-visible { outline: 2px solid var(--mi); outline-offset: 2px; }
+.ax { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+.axl { font-family: var(--mono); font-size: 11.5px; fill: var(--ink); }
+.cv { font-family: var(--mono); font-size: 13px; font-weight: 600; fill: var(--ink); pointer-events: none; }
+.cv.sm { font-size: 10px; font-weight: 400; fill: var(--muted); }
+.grid { stroke: var(--rule); stroke-width: 1; }
+.base { stroke: var(--muted); stroke-width: 1; }
+
+.readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.stat { background: var(--sunk); border-radius: 8px; padding: 10px 12px; }
+.stat .k { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.stat .v { font-family: var(--display); font-weight: 700; font-size: 25px; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.stat .u { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-left: 3px; }
+.stat.x .v { color: var(--x); } .stat.y .v { color: var(--y); } .stat.m .v { color: var(--mi); } .stat.g .v { color: var(--green); } .stat.a .v { color: var(--amber); }
+.stat.m { box-shadow: inset 0 0 0 1px var(--mi); }
+
+.btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+button.b { font-family: var(--mono); font-size: 12.5px; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); cursor: pointer; }
+button.b:hover { border-color: var(--ink); }
+button.b.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--rule); border-radius: 7px; overflow: hidden; }
+.seg button { font-family: var(--mono); font-size: 12px; padding: 7px 11px; border: 0; border-right: 1px solid var(--rule); background: var(--surface); color: var(--ink); cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button.on { background: var(--mi); color: #fff; }
+
+.ctrl { display: grid; grid-template-columns: 110px minmax(0, 1fr) 60px; align-items: center; gap: 10px; margin: 6px 0; font-family: var(--mono); font-size: 13px; }
+.ctrl label { color: var(--muted); }
+.ctrl output { text-align: right; font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; accent-color: var(--mi); }
+
+table.t { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+table.t th, table.t td { padding: 6px 8px; border-bottom: 1px solid var(--rule); text-align: right; }
+table.t th:first-child, table.t td:first-child { text-align: left; }
+table.t th { color: var(--muted); font-weight: 400; font-size: 11.5px; }
+table.t tfoot td { font-weight: 600; border-bottom: 0; }
+.scroll { overflow-x: auto; }
+
+/* stacked information bars (Figure 6.4 style) */
+.ibars { display: grid; gap: 6px; margin-top: 10px; }
+.irow { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 10px; align-items: center; }
+.irow .lab { font-family: var(--mono); font-size: 12px; color: var(--muted); text-align: right; }
+.itrack { position: relative; height: 28px; background: var(--sunk); border-radius: 4px; }
+.itrack > div { position: absolute; top: 0; bottom: 0; border-radius: 4px; display: flex; align-items: center; justify-content: center; padding: 0 6px; font-family: var(--mono); font-size: 11.5px; white-space: nowrap; overflow: hidden; color: var(--ink); transition: left .15s, width .15s; }
+@media (prefers-reduced-motion: reduce) { .itrack > div { transition: none; } }
+.seg-x { background: var(--x-soft); box-shadow: inset 0 0 0 1.5px var(--x); }
+.seg-y { background: var(--y-soft); box-shadow: inset 0 0 0 1.5px var(--y); }
+.seg-m { background: var(--mi-soft); box-shadow: inset 0 0 0 1.5px var(--mi); }
+.seg-g { background: var(--green-soft); box-shadow: inset 0 0 0 1.5px var(--green); }
+.seg-a { background: var(--amber-soft); box-shadow: inset 0 0 0 1.5px var(--amber); }
+.iscale { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: 84px; }
+
+/* equation strip under the Venn */
+.eqstrip { font-family: var(--mono); font-size: 14px; background: var(--sunk); border-radius: 8px; padding: 10px 14px; margin-top: 12px; line-height: 1.9; overflow-x: auto; white-space: nowrap; }
+.eqstrip .tx { color: var(--x); font-weight: 600; } .eqstrip .ty { color: var(--y); font-weight: 600; } .eqstrip .tm { color: var(--mi); font-weight: 600; } .eqstrip .tj { font-weight: 600; }
+
+/* tiles for 6.3.3 */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 5px; }
+.tile { aspect-ratio: 1; border-radius: 6px; display: grid; place-items: center; font-family: var(--mono); font-weight: 600; font-size: 13px; border: 1.5px solid var(--rule); background: var(--surface); transition: opacity .2s; }
+.tile.ev { border-color: var(--x); }
+.tile.pr { background: var(--y-soft); }
+.tile.ev.pr { background: var(--mi-soft); border-color: var(--mi); }
+.tile.dim { opacity: .18; }
+.tlegend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 10px; }
+.tlegend i { display: inline-block; width: 13px; height: 13px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; border: 1.5px solid var(--rule); }
+
+/* bits rows for DPI */
+.bitrows { display: grid; gap: 5px; }
+.brow { display: grid; grid-template-columns: 34px minmax(0, 1fr) 190px; gap: 10px; align-items: center; }
+.brow .nm { font-family: var(--mono); font-size: 12.5px; text-align: right; }
+.bits { display: grid; grid-template-columns: repeat(40, minmax(0, 1fr)); gap: 2px; }
+.bits i { aspect-ratio: 1; border-radius: 2px; border: 1.5px solid var(--muted); }
+.bits i.one { background: var(--ink); border-color: var(--ink); }
+.bits i.bad { border-color: var(--amber); box-shadow: 0 0 0 1.5px var(--amber); }
+.bits i.bad.one { background: var(--amber); }
+.mibw { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; align-items: center; }
+.mib { position: relative; height: 14px; background: var(--sunk); border-radius: 3px; }
+.mib > div { position: absolute; left: 0; top: 0; bottom: 0; background: var(--mi); border-radius: 3px; opacity: .85; }
+.mibt { font-family: var(--mono); font-size: 11.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) { .brow { grid-template-columns: 30px minmax(0, 1fr); } .brow .mibw { grid-column: 2; } .bits { gap: 1px; } }
+.arrowline { font-family: var(--mono); font-size: 12px; color: var(--muted); margin: 2px 0 2px 44px; }
+
+#cmi .three svg { max-width: 300px; margin-inline: auto; }
+table.pat td.z { font-weight: 600; }
+table.pat tr.g0 td:first-child { box-shadow: inset 3px 0 0 var(--x); }
+table.pat tr.g1 td:first-child { box-shadow: inset 3px 0 0 var(--y); }
+table.pat tr.g2 td:first-child { box-shadow: inset 3px 0 0 var(--green); }
+table.pat tr.g3 td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
+
+/* coins for sufficiency */
+.coins { display: flex; flex-wrap: wrap; gap: 5px; }
+.coin { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--x); background: var(--surface); color: var(--x); font-family: var(--mono); font-weight: 600; font-size: 13px; cursor: pointer; padding: 0; }
+.coin.h { background: var(--x); color: var(--surface); }
+.coin.inS { box-shadow: 0 0 0 3px var(--mi-soft); }
+.statlist { display: grid; gap: 6px; }
+.statbtn { display: grid; grid-template-columns: minmax(0, 1fr) 112px 54px; gap: 10px; align-items: center; text-align: left; font-family: var(--mono); font-size: 12.5px; padding: 7px 10px; border-radius: 7px; border: 1px solid var(--rule); background: var(--bg); color: var(--ink); cursor: pointer; }
+.statbtn.on { border-color: var(--mi); box-shadow: inset 0 0 0 1px var(--mi); }
+.statbtn .sb { position: relative; height: 12px; background: var(--sunk); border-radius: 3px; }
+.statbtn .sb > div { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--mi); }
+.statbtn .sb > div.full { background: var(--green); }
+.statbtn .sv { text-align: right; font-variant-numeric: tabular-nums; }
+.statbtn .tick { color: var(--green); font-weight: 600; }
+
+/* math */
+.mathcard { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 6px 20px 16px; }
+.mathcard + .mathcard { margin-top: 16px; }
+.mathcard h4 { font-family: var(--display); font-weight: 700; font-size: 18px; margin: 16px 0 4px; }
+.mathcard p, .mathcard li { max-width: 68ch; }
+.eq { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+mjx-container[display="true"] { overflow-x: auto; overflow-y: hidden; max-width: 100%; margin: 10px 0 !important; padding: 2px 0; }
+.tx { color: var(--x); } .ty { color: var(--y); } .tm { color: var(--mi); } .tg { color: var(--green); } .ta { color: var(--amber); }
+.terms { list-style: none; padding: 0; margin: 8px 0 4px; display: grid; gap: 10px; }
+.terms li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 10px; align-items: start; }
+.terms li i { width: 12px; height: 12px; border-radius: 3px; margin-top: 7px; }
+.terms li b { font-family: var(--display); font-weight: 700; }
+.steps { counter-reset: st; list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 4px; }
+.steps > li { counter-increment: st; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 8px; padding: 6px 0; border-top: 1px dashed var(--rule); }
+.steps > li::before { content: counter(st); font-family: var(--mono); font-size: 12px; color: var(--surface); background: var(--x); border-radius: 50%; width: 22px; height: 22px; display: grid; place-items: center; margin-top: 4px; }
+.steps .why { color: var(--muted); font-size: 15px; }
+.steps > li > div { min-width: 0; }
+.steps > li > div > mjx-container:first-child { display: inline-block; max-width: 100%; overflow-x: auto; overflow-y: hidden; vertical-align: middle; }
+code { overflow-wrap: anywhere; }
+.refresh { background: var(--sunk); border-radius: 8px; padding: 12px 16px; margin: 14px 0; font-size: 15.5px; }
+.refresh .ttl { font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.note { border-left: 3px solid var(--amber); padding: 6px 14px; margin: 14px 0; font-size: 15.5px; background: var(--sunk); border-radius: 0 6px 6px 0; }
+.live { font-family: var(--mono); font-size: 13px; line-height: 1.9; overflow-x: auto; }
+
+/* quiz */
+.quizbox { display: grid; gap: 14px; }
+.qq { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; }
+.qq .qt { font-weight: 600; margin: 0 0 10px; }
+.qq .qt .qn { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-right: 8px; font-weight: 400; }
+.opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 600px) { .opts { grid-template-columns: minmax(0, 1fr); } }
+.opt { text-align: left; font-family: var(--body); font-size: 15.5px; line-height: 1.4; padding: 9px 12px; border-radius: 7px; border: 1px solid var(--rule); background: var(--bg); color: var(--ink); cursor: pointer; }
+.opt:hover:not(:disabled) { border-color: var(--ink); }
+.opt:disabled { cursor: default; }
+.opt.right { border-color: var(--green); background: var(--green-soft); }
+.opt.wrong { border-color: var(--y); background: var(--y-soft); }
+.why-ans { margin: 10px 0 0; font-size: 15px; padding: 8px 12px; border-radius: 6px; background: var(--sunk); }
+.why-ans b.ok { color: var(--green); } .why-ans b.no { color: var(--y); }
+.quizfoot { display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+
+table.vs { border-collapse: collapse; width: 100%; font-size: 15px; }
+table.vs th, table.vs td { padding: 9px 10px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+table.vs thead th { font-family: var(--display); font-size: 16px; }
+table.vs tbody th { font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--muted); white-space: nowrap; }
+
+footer { padding-block: 32px; color: var(--muted); font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="topbar-in">
+  <div class="brand">Mutual <span>Information</span> Lab</div>
+  <div class="chips">
+    <a href="#def">6.3.1</a><a href="#interp">6.3.2</a><a href="#example">6.3.3</a><a href="#cmi">6.3.4</a><a href="#gauss">6.3.5</a><a href="#dpi">6.3.8</a><a href="#suff">6.3.9</a><a href="#cheat">Sheet</a>
+  </div>
+  <div class="score" id="score">Quiz <b>0</b> / 0</div>
+</div></div>
+
+<div class="wrap">
+<aside class="rail"><nav id="rail">
+  <a href="#def"><span class="n">6.3.1</span>Definition</a>
+  <a href="#interp"><span class="n">6.3.2</span>Interpretation &amp; the Venn diagram</a>
+  <a href="#example"><span class="n">6.3.3</span>Example: even &amp; prime</a>
+  <a href="#cmi"><span class="n">6.3.4</span>Conditional MI &amp; chain rule</a>
+  <a href="#gauss"><span class="n">6.3.5</span>MI as generalized correlation</a>
+  <a href="#dpi"><span class="n">6.3.8</span>Data processing inequality</a>
+  <a href="#suff"><span class="n">6.3.9</span>Sufficient statistics</a>
+  <a href="#cheat"><span class="n">—</span>Cheat sheet</a>
+</nav></aside>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Murphy, <i>Probabilistic Machine Learning</i> · Chapter 6 · §6.3 (skipping §6.3.6, 6.3.7, 6.3.10)</div>
+  <h1>What does <span class="y">Y</span> tell you about <span class="x">X</span>? Mutual information, the <span class="m">overlap</span> between two uncertainties.</h1>
+  <p class="lede">Mutual information measures how dependent two random variables are, in bits. Each section has three parts. <b>Play</b> lets you build joint distributions, scatter plots, noisy channels and coin flips and watch the information move. <b>Math, slowly</b> walks through the book's equations one step at a time. <b>Check yourself</b> is a short quiz, and your running score sits in the top bar.</p>
+  <svg class="hero-venn" id="hero-venn" viewBox="0 0 560 150" aria-label="Information diagram: two overlapping circles, H(X) and H(Y), with the overlap labeled I(X;Y)"></svg>
+  <div class="legend3">
+    <span><i style="background:var(--x)"></i>X and its entropy H(X)</span>
+    <span><i style="background:var(--y)"></i>Y and its entropy H(Y)</span>
+    <span><i style="background:var(--mi)"></i>shared information I(X;Y)</span>
+    <span><i style="background:var(--green)"></i>results that are zero, equal, or "good"</span>
+  </div>
+</header>
+
+<!-- ============ 6.3.1 DEFINITION ============ -->
+<section class="sec" id="def">
+  <div class="sec-head"><span class="secnum">§6.3.1</span><h2>Definition: how far is the joint from "independent"?</h2></div>
+  <div class="intro">
+    <p>If X and Y were independent, their joint would just be the product of the marginals, \(p(x)p(y)\). Mutual information takes the <b>real joint</b> \(p(x,y)\) and asks how far it is from that independent version. It measures the distance with the KL divergence from §6.2. The bigger the gap, the more the two variables depend on each other.</p>
+  </div>
+
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>Build a joint distribution</h3>
+    <div class="panel">
+      <p class="hint">Drag any cell of the <b>left</b> grid up or down to change its probability (the others rescale so the total stays 1). The middle grid is what independence would predict from the same marginals. The right grid shows each cell's contribution to the MI sum: <span style="color:var(--mi)">purple</span> where the pair happens <i>more</i> often than independence predicts, <span style="color:var(--amber)">amber</span> where it happens <i>less</i>.</p>
+      <div class="three">
+        <div><p class="cap"><b style="color:var(--x)">p(x, y)</b> · the truth (drag)</p><svg class="plot grab" id="def-joint" tabindex="0" aria-label="Joint distribution grid. Drag cells up or down; arrow keys move, plus and minus change."></svg></div>
+        <div><p class="cap"><b>p(x) p(y)</b> · if independent</p><svg class="plot" id="def-prod" aria-label="Product of marginals"></svg></div>
+        <div><p class="cap"><b style="color:var(--mi)">p log₂ [p / p(x)p(y)]</b> · bits per cell</p><svg class="plot" id="def-contrib" aria-label="Per-cell contribution to mutual information"></svg></div>
+      </div>
+      <div class="refresh live" id="def-cell" style="margin-bottom:6px"></div>
+      <div class="ctrl"><label for="def-lam">blend → indep.</label><input type="range" id="def-lam" min="0" max="1" step="0.01" value="0"><output id="def-lam-o">0.00</output></div>
+      <p class="hint" style="margin:0">The blend slider mixes your joint with the middle grid: \((1-\lambda)\,p(x,y) + \lambda\,p(x)p(y)\). The marginals don't change at all, but the dependence fades out, and so does the MI.</p>
+      <div class="btns">
+        <button class="b" data-def="noisy">Noisy copy</button>
+        <button class="b" data-def="copy">Y = X exactly</button>
+        <button class="b" data-def="perm">Y = X shifted (1→2→3→1)</button>
+        <button class="b" data-def="func">Y is a function of X</button>
+        <button class="b" data-def="indep">Independent</button>
+      </div>
+      <div class="readout" style="margin-top:16px">
+        <div class="stat m"><div class="k">I(X;Y) = Σ cells</div><div class="v" id="def-I"></div></div>
+        <div class="stat x"><div class="k">H(X)</div><div class="v" id="def-HX"></div></div>
+        <div class="stat y"><div class="k">H(Y)</div><div class="v" id="def-HY"></div></div>
+        <div class="stat a"><div class="k">negative cells sum</div><div class="v" id="def-neg"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>Equations 6.47 – 6.48</h3>
+    <div class="mathcard">
+      <h4>Equation 6.47, colored by role</h4>
+      <div class="eq">\[ \mathbb{I}(X;Y) \;\triangleq\; D_{\mathbb{KL}}\big(\class{tx}{p(x,y)} \,\|\, \class{ta}{p(x)\,p(y)}\big) \;=\; \sum_{y\in\mathcal Y}\sum_{x\in\mathcal X} \class{tx}{p(x,y)}\,\log \class{tm}{\frac{p(x,y)}{p(x)\,p(y)}} \]</div>
+      <ul class="terms">
+        <li><i style="background:var(--x)"></i><div><b>Weight \(p(x,y)\):</b> how often the pair \((x,y)\) actually happens. Every cell is weighted by the truth.</div></li>
+        <li><i style="background:var(--amber)"></i><div><b>Baseline \(p(x)p(y)\):</b> how often that pair <i>would</i> happen if X and Y had nothing to do with each other. It's built only from the two marginals (the row and column sums).</div></li>
+        <li><i style="background:var(--mi)"></i><div><b>The ratio:</b> "how many times more often than chance does this pair occur?" Ratio 2 → \(\log_2 2 = +1\) bit. Ratio 1 → 0 (this cell looks independent). Ratio ½ → −1 bit (this pair is rarer than chance).</div></li>
+      </ul>
+      <div class="refresh"><div class="ttl">KL refresher (§6.2)</div>
+        \(D_{\mathbb{KL}}(p\,\|\,q) = \sum_k p_k \log \frac{p_k}{q_k}\) is the number of extra bits you waste when the data comes from \(p\) but you planned for \(q\). It's always \(\ge 0\) (Gibbs' inequality), and it equals 0 only when \(p = q\). For MI, the "planned for" model is the independence model \(q = p(x)p(y)\).</div>
+
+      <h4>Why MI is never negative (6.48)</h4>
+      <ol class="steps">
+        <li><div>\(\mathbb{I}(X;Y) = D_{\mathbb{KL}}\big(p(x,y)\,\|\,p(x)p(y)\big)\)<div class="why">Definition. Both arguments are valid distributions over pairs: \(p(x)p(y)\) is non-negative and sums to \(\sum_x p(x)\sum_y p(y) = 1\).</div></div></li>
+        <li><div>\(\ge 0\)<div class="why">Any KL divergence is non-negative. Individual cells <i>can</i> be negative (the amber ones), but those cells have small weight relative to the purple ones, so the total never dips below 0. The "negative cells sum" stat in Play shows how much they pull back.</div></div></li>
+        <li><div>\(= 0 \iff p(x,y) = p(x)p(y)\ \text{for every } (x,y)\)<div class="why">KL is zero only when the two distributions match exactly, and that is the definition of independence. Try "Independent" or drag the blend slider to 1.</div></div></li>
+      </ol>
+
+      <h4>Worked example: a perfect copy</h4>
+      <p>X is a fair coin and Y = X. The joint has \(\tfrac12\) on (0,0) and (1,1) and 0 elsewhere. Every product cell is \(\tfrac12\cdot\tfrac12 = \tfrac14\).</p>
+      <div class="eq">\[ \mathbb I = \underbrace{\tfrac12\log_2\frac{1/2}{1/4}}_{(0,0)} + \underbrace{\tfrac12\log_2\frac{1/2}{1/4}}_{(1,1)} + \underbrace{0 + 0}_{\text{off-diagonal}} = \tfrac12(1) + \tfrac12(1) = 1 \text{ bit} \]</div>
+      <p>Zero-probability cells contribute nothing (using the convention \(0\log 0 = 0\)). Seeing Y gives you X's single bit for free. In the 3×3 Play grid, "Y = X exactly" gives \(\log_2 3 \approx 1.58\) bits for the same reason.</p>
+      <div class="note"><b>Notation.</b> The book writes \(\mathbb I(X;Y)\) with a semicolon, not a comma, so it can say things like \(\mathbb I(X;Y,Z)\): the information between X and the <i>pair</i> (Y, Z). For continuous variables, swap the sums for integrals; the result is still \(\ge 0\).</div>
+    </div>
+  </div>
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>Definition</h3><div class="quizbox" data-quiz="def"></div></div>
+</section>
+
+<!-- ============ 6.3.2 INTERPRETATION ============ -->
+<section class="sec" id="interp">
+  <div class="sec-head"><span class="secnum">§6.3.2</span><h2>Interpretation: the overlap of two uncertainties</h2></div>
+  <div class="intro">
+    <p>MI can be rewritten using only entropies, and those rewrites fit in a two-circle diagram (Figure 6.4). Each circle is the uncertainty of one variable, the union is the joint entropy, and the overlap is the mutual information: the uncertainty you remove from one variable by observing the other.</p>
+  </div>
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>Information diagram</h3>
+    <div class="panel">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+        <div class="seg" id="vn-src"><button data-src="chan" class="on">Noisy binary channel</button><button data-src="table">Your 3×3 table from §6.3.1</button></div>
+      </div>
+      <div id="vn-chan-ctrls" style="margin-top:10px">
+        <p class="hint" style="margin-bottom:4px">X is a coin with P(X=1) = a. Y is X sent through a noisy wire that flips it with probability ε.</p>
+        <div class="ctrl"><label for="vn-a">a = P(X=1)</label><input type="range" id="vn-a" min="0" max="1" step="0.01" value="0.5"><output id="vn-a-o"></output></div>
+        <div class="ctrl"><label for="vn-e">ε = flip prob.</label><input type="range" id="vn-e" min="0" max="0.5" step="0.005" value="0.1"><output id="vn-e-o"></output></div>
+      </div>
+      <p class="hint" id="vn-table-note" style="display:none;margin-top:10px">Using the joint you built in §6.3.1 (including the blend slider). Go back up and drag cells: this diagram follows.</p>
+      <svg class="plot" id="vn-svg" viewBox="0 0 560 250" aria-label="Two-circle information diagram, circle areas proportional to entropies"></svg>
+      <p class="hint" style="margin:4px 0 6px">Circle <b>areas</b> are proportional to H(X) and H(Y); the overlap's area is I(X;Y). Pick an identity to see which regions it subtracts (hatched):</p>
+      <div class="seg" id="vn-mode">
+        <button data-m="none" class="on">Just the diagram</button>
+        <button data-m="a">6.49  H(X) − H(X|Y)</button>
+        <button data-m="b">6.49  H(Y) − H(Y|X)</button>
+        <button data-m="c">6.50  H(X,Y) − H(X|Y) − H(Y|X)</button>
+        <button data-m="d">6.51  H(X) + H(Y) − H(X,Y)</button>
+      </div>
+      <div class="eqstrip" id="vn-eq"></div>
+      <div class="ibars" id="vn-bars"></div>
+      <div class="iscale"><span>0</span><span id="vn-scale"></span></div>
+    </div>
+  </div>
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>Equations 6.49 – 6.51</h3>
+    <div class="mathcard">
+      <h4>Deriving 6.49 from the definition</h4>
+      <ol class="steps">
+        <li><div>\(\mathbb I(X;Y) = \sum_{x,y} p(x,y)\log\dfrac{p(x,y)}{p(x)\,p(y)}\)<div class="why">Start from Eq. 6.47.</div></div></li>
+        <li><div>\(= \sum_{x,y} p(x,y)\log\dfrac{p(x|y)}{p(x)}\)<div class="why">Conditional probability: \(p(x,y)/p(y) = p(x|y)\).</div></div></li>
+        <li><div>\(= -\sum_{x,y} p(x,y)\log p(x) \;+\; \sum_{x,y} p(x,y)\log p(x|y)\)<div class="why">Log of a ratio = difference of logs. Split into two sums.</div></div></li>
+        <li><div>\(= \class{tx}{-\sum_{x} p(x)\log p(x)} \;-\; \class{ta}{\Big(-\sum_{x,y} p(x,y)\log p(x|y)\Big)}\)<div class="why">In the first sum, \(\log p(x)\) doesn't depend on y, so summing \(p(x,y)\) over y gives \(p(x)\). The second sum is rewritten with two minus signs so it matches the conditional entropy formula from §6.1.4.</div></div></li>
+        <li><div>\(= \class{tx}{\mathbb H(X)} - \class{ta}{\mathbb H(X|Y)}\)<div class="why">Recognize each piece: marginal entropy minus conditional entropy. Swapping the roles of X and Y gives \(\mathbb H(Y) - \mathbb H(Y|X)\).</div></div></li>
+      </ol>
+      <p><b>Reading:</b> \(\mathbb H(X)\) is how unsure you are about X before looking at anything. \(\mathbb H(X|Y)\) is how unsure you still are, on average, after seeing Y. MI is the <b>drop</b>. And since \(\mathbb I \ge 0\), the drop can't be negative: \(\mathbb H(X|Y) \le \mathbb H(X)\). That's a second proof that conditioning reduces entropy <i>on average</i>.</p>
+
+      <h4>Getting 6.51 and 6.50</h4>
+      <ol class="steps">
+        <li><div>\(\mathbb H(X|Y) = \mathbb H(X,Y) - \mathbb H(Y)\)<div class="why">Chain rule for entropy (Eq. 6.15): uncertainty left in X after Y = uncertainty of the pair − uncertainty of Y.</div></div></li>
+        <li><div>\(\mathbb I = \mathbb H(X) - \big[\mathbb H(X,Y) - \mathbb H(Y)\big] = \mathbb H(X) + \mathbb H(Y) - \mathbb H(X,Y)\)<div class="why">Substitute into 6.49. This is <b>6.51</b>. In the diagram: adding both circles counts the overlap twice, and subtracting the union removes it once, leaving the overlap.</div></div></li>
+        <li><div>\(\mathbb H(X|Y) + \mathbb H(Y|X) = 2\,\mathbb H(X,Y) - \mathbb H(X) - \mathbb H(Y) = \mathbb H(X,Y) - \mathbb I\)<div class="why">Apply the chain rule to both conditionals, then use 6.51 to replace \(\mathbb H(X)+\mathbb H(Y)-\mathbb H(X,Y)\) with \(\mathbb I\).</div></div></li>
+        <li><div>\(\mathbb I = \mathbb H(X,Y) - \mathbb H(X|Y) - \mathbb H(Y|X)\)<div class="why">Rearrange: this is <b>6.50</b>. The union minus the two crescents is the overlap. Equivalently \(\mathbb H(X,Y) = \mathbb H(X|Y) + \mathbb I + \mathbb H(Y|X)\), the middle bar in Play.</div></div></li>
+      </ol>
+      <div class="refresh"><div class="ttl">Dictionary for the diagram</div>
+        <table class="t" style="font-family:var(--body);font-size:15px">
+          <tr><th>Region</th><th style="text-align:left">Quantity</th><th style="text-align:left">Meaning</th></tr>
+          <tr><td>Left circle</td><td style="text-align:left">\(\mathbb H(X)\)</td><td style="text-align:left">uncertainty in X</td></tr>
+          <tr><td>Left crescent</td><td style="text-align:left">\(\mathbb H(X|Y)\)</td><td style="text-align:left">uncertainty in X that Y can't remove</td></tr>
+          <tr><td>Overlap</td><td style="text-align:left">\(\mathbb I(X;Y)\)</td><td style="text-align:left">uncertainty shared by both</td></tr>
+          <tr><td>Union</td><td style="text-align:left">\(\mathbb H(X,Y)\)</td><td style="text-align:left">uncertainty about the pair</td></tr>
+        </table>
+      </div>
+      <div class="note">The diagram is an analogy, not literal set theory: formally it's a "signed measure". With two variables every region is \(\ge 0\). With three variables the center region can go <b>negative</b>; you'll see an example (XOR) in §6.3.4.</div>
+    </div>
+  </div>
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>Interpretation</h3><div class="quizbox" data-quiz="interp"></div></div>
+</section>
+
+<!-- ============ 6.3.3 EXAMPLE ============ -->
+<section class="sec" id="example">
+  <div class="sec-head"><span class="secnum">§6.3.3</span><h2>Example: is an even number likely to be prime?</h2></div>
+  <div class="intro">
+    <p>Back to §6.1.3: pick a number n uniformly from 1–8. Let <b style="color:var(--x)">X = 1 if n is even</b> and <b style="color:var(--y)">Y = 1 if n is prime</b>. Being even makes "prime" unlikely (only 2 is both), so knowing X should tell you something about Y. How much? The book's answer is 0.19 bits.</p>
+  </div>
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>Observe X, watch Y's uncertainty</h3>
+    <div class="panel">
+      <div class="two">
+        <div>
+          <div class="ctrl"><label for="ex-N">n from 1 to N</label><input type="range" id="ex-N" min="2" max="60" step="1" value="8"><output id="ex-N-o"></output></div>
+          <div class="tiles" id="ex-tiles" style="margin-top:10px"></div>
+          <div class="tlegend"><span><i style="border-color:var(--x)"></i>even (X=1)</span><span><i style="background:var(--y-soft)"></i>prime (Y=1)</span><span><i style="background:var(--mi-soft);border-color:var(--mi)"></i>both</span></div>
+          <div style="margin-top:14px"><span class="cap" style="margin-right:8px">Observe:</span>
+            <div class="seg" id="ex-obs"><button data-o="none" class="on">nothing</button><button data-o="1">X = 1 (even)</button><button data-o="0">X = 0 (odd)</button></div>
+          </div>
+          <div class="refresh live" id="ex-obs-out" style="margin-bottom:0"></div>
+        </div>
+        <div>
+          <div class="scroll"><table class="t" id="ex-table"></table></div>
+          <div class="readout" style="margin-top:14px">
+            <div class="stat y"><div class="k">H(Y)</div><div class="v" id="ex-HY"></div></div>
+            <div class="stat a"><div class="k">H(Y|X)</div><div class="v" id="ex-HYX"></div></div>
+            <div class="stat m"><div class="k">I = H(Y) − H(Y|X)</div><div class="v" id="ex-I"></div></div>
+          </div>
+          <div class="ibars" id="ex-bars"></div>
+          <p class="hint" id="ex-note" style="margin-top:10px"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>Equations 6.52 – 6.55</h3>
+    <div class="mathcard">
+      <h4>Step 1: the joint table and its rows</h4>
+      <p>For n ∈ {1,…,8}: even & prime = {2}; even & not prime = {4, 6, 8}; odd & prime = {3, 5, 7}; odd & not prime = {1}. Dividing each row by its total (4 numbers each) gives \(p(Y|X)\):</p>
+      <div class="scroll"><table class="t" style="max-width:520px">
+        <tr><th></th><th>Y=0 (not prime)</th><th>Y=1 (prime)</th><th>row sum</th></tr>
+        <tr><td>X=0 (odd)</td><td>1/8 → <b>1/4</b></td><td>3/8 → <b>3/4</b></td><td>1/2</td></tr>
+        <tr><td>X=1 (even)</td><td>3/8 → <b>3/4</b></td><td>1/8 → <b>1/4</b></td><td>1/2</td></tr>
+      </table></div>
+      <p>Four of the eight numbers are even and four are prime, so each row <i>and</i> each column sums to 1/2. Both marginals are fair coins: \(\mathbb H(X) = \mathbb H(Y) = 1\) bit.</p>
+      <h4>Step 2: conditional entropy (6.52)</h4>
+      <div class="eq">\[ \mathbb H(Y|X) = -\sum_{x,y}\class{tx}{p(x,y)}\,\log_2 \class{ty}{p(y|x)} = -\Big[\tfrac18\log_2\tfrac14 + \tfrac38\log_2\tfrac34 + \tfrac38\log_2\tfrac34 + \tfrac18\log_2\tfrac14\Big] \]</div>
+      <p>Notice the mix: the <span class="tx">weights are joint probabilities</span> (how often each cell happens) but the <span class="ty">logs use the conditional</span> (how surprised you are by Y once you know X). With \(\log_2\tfrac14 = -2\) and \(\log_2\tfrac34 \approx -0.415\):</p>
+      <div class="eq">\[ \mathbb H(Y|X) = \underbrace{2\cdot\tfrac18\cdot 2}_{0.500} + \underbrace{2\cdot\tfrac38\cdot 0.415}_{0.311} \approx 0.81 \text{ bits} \]</div>
+      <h4>Step 3: MI (6.53)</h4>
+      <div class="eq">\[ \mathbb I(X;Y) = \mathbb H(Y) - \mathbb H(Y|X) = 1 - 0.81 = 0.19 \text{ bits} \]</div>
+      <p>Knowing parity shaves about a fifth of a bit off your uncertainty about primality. Not much, because each row is still a 1:3 / 3:1 split, not a certainty.</p>
+      <h4>Step 4: check with the diagram (6.54–6.55)</h4>
+      <p>The table is symmetric (swap X and Y and you get the same numbers), so \(\mathbb H(X|Y) = 0.81\) too.</p>
+      <div class="eq">\[ \mathbb H(X,Y) = \class{tx}{\mathbb H(X|Y)} + \class{tm}{\mathbb I(X;Y)} + \class{ty}{\mathbb H(Y|X)} = 0.81 + 0.19 + 0.81 = 1.81 \text{ bits} \]</div>
+      <p>This matches computing the joint entropy directly from \([\tfrac18,\tfrac38,\tfrac38,\tfrac18]\), as in §6.1.3. Move the N slider in Play: the identity holds for every N, even though the numbers change.</p>
+    </div>
+  </div>
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>Even &amp; prime</h3><div class="quizbox" data-quiz="example"></div></div>
+</section>
+
+<!-- ============ 6.3.4 CONDITIONAL MI ============ -->
+<section class="sec" id="cmi">
+  <div class="sec-head"><span class="secnum">§6.3.4</span><h2>Conditional MI: what's left once Z is known</h2></div>
+  <div class="intro">
+    <p>\(\mathbb I(X;Y|Z)\) asks: <i>after</i> you already know a third variable Z, how much does Y still tell you about X? Conditioning on Z can remove dependence (Z explained it all), shrink it (Z already told you some of it), or even <b>create</b> dependence that wasn't there before.</p>
+  </div>
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>Three binary variables</h3>
+    <div class="panel">
+      <div class="seg" id="cm-struct">
+        <button data-s="cause" class="on">Common cause: Z → X, Z → Y</button>
+        <button data-s="redund">Redundant: X → Y, X → Z</button>
+        <button data-s="xor">XOR: Z = X ⊕ Y</button>
+        <button data-s="irr">Irrelevant Z</button>
+      </div>
+      <p class="hint" id="cm-desc" style="margin-top:10px"></p>
+      <div class="ctrl"><label for="cm-e">noise ε</label><input type="range" id="cm-e" min="0" max="0.5" step="0.005" value="0.1"><output id="cm-e-o"></output></div>
+      <div class="three" style="margin-top:12px">
+        <div><p class="cap" id="cm-cap0"></p><svg class="plot" id="cm-s0"></svg></div>
+        <div><p class="cap" id="cm-cap1"></p><svg class="plot" id="cm-s1"></svg></div>
+        <div><p class="cap" id="cm-capm"></p><svg class="plot" id="cm-sm"></svg></div>
+      </div>
+      <div class="refresh live" id="cm-avg"></div>
+      <div class="readout">
+        <div class="stat m"><div class="k">I(X;Y)</div><div class="v" id="cm-I"></div></div>
+        <div class="stat g"><div class="k">I(X;Y|Z)</div><div class="v" id="cm-IZ"></div></div>
+        <div class="stat"><div class="k">I(X;Z)</div><div class="v" id="cm-IXZ"></div></div>
+        <div class="stat x"><div class="k">I(X;Y,Z)</div><div class="v" id="cm-IYZ"></div></div>
+      </div>
+      <h4 style="margin-top:18px">Chain rule (6.62), two ways to reveal (Y, Z)</h4>
+      <p class="hint">Both bars have the same total, I(X; Y, Z). Reveal Z first then Y (top), or Y first then Z (bottom).</p>
+      <div class="ibars" id="cm-bars"></div>
+      <div class="iscale"><span>0</span><span>1 bit = H(X)</span></div>
+    </div>
+  </div>
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>Equations 6.56 – 6.63</h3>
+    <div class="mathcard">
+      <h4>Definition as an average over Z (6.56–6.57)</h4>
+      <div class="eq">\[ \mathbb I(X;Y|Z) \triangleq \class{tg}{\mathbb E_{p(Z)}}\big[\,\class{tm}{\mathbb I(X;Y)\mid Z}\,\big] = \sum_z \class{tg}{p(z)}\;\class{tm}{\sum_{x,y} p(x,y|z)\log\frac{p(x,y|z)}{p(x|z)\,p(y|z)}} \]</div>
+      <ul class="terms">
+        <li><i style="background:var(--mi)"></i><div><b>Inside:</b> fix Z = z, take the slice \(p(x,y|z)\) of the table, and compute ordinary MI on that slice. That's the left and middle grids in Play.</div></li>
+        <li><i style="background:var(--green)"></i><div><b>Outside:</b> average the slice MIs, weighted by how often each z happens. Eq. 6.57 folds both sums into a single expectation over \(p(x,y,z)\).</div></li>
+      </ul>
+      <h4>The entropy forms (6.58–6.60)</h4>
+      <p>Every identity from §6.3.2 still holds; just add "\(|Z\)" to everything:</p>
+      <div class="eq">\[ \mathbb I(X;Y|Z) = \mathbb H(X|Z) + \mathbb H(Y|Z) - \mathbb H(X,Y|Z) = \mathbb H(X|Z) - \mathbb H(X|Y,Z) \]</div>
+      <p>Writing each conditional entropy as a difference of joint entropies (\(\mathbb H(A|Z) = \mathbb H(A,Z) - \mathbb H(Z)\)) gives 6.60, the form Play uses to compute the numbers:</p>
+      <div class="eq">\[ \mathbb I(X;Y|Z) = \mathbb H(X,Z) + \mathbb H(Y,Z) - \mathbb H(Z) - \mathbb H(X,Y,Z) \]</div>
+      <h4>"Residual information" (6.61), derived</h4>
+      <ol class="steps">
+        <li><div>\(\mathbb I(Y;X,Z) - \mathbb I(Y;Z)\)<div class="why">What (X, Z) together tell you about Y, minus what Z alone tells you.</div></div></li>
+        <li><div>\(= \big[\mathbb H(Y) - \mathbb H(Y|X,Z)\big] - \big[\mathbb H(Y) - \mathbb H(Y|Z)\big]\)<div class="why">Apply 6.49 to each MI.</div></div></li>
+        <li><div>\(= \mathbb H(Y|Z) - \mathbb H(Y|X,Z) = \mathbb I(X;Y|Z)\)<div class="why">The \(\mathbb H(Y)\) terms cancel; what remains is 6.59. So conditional MI is the <b>extra</b> information X adds about Y beyond what Z already gave.</div></div></li>
+      </ol>
+      <h4>Chain rule (6.62–6.63)</h4>
+      <div class="eq">\[ \mathbb I(Z,Y;X) = \class{tx}{\mathbb I(Z;X)} + \class{tg}{\mathbb I(Y;X|Z)} \qquad\Longrightarrow\qquad \mathbb I(Z_1,\dots,Z_N;X) = \sum_{n=1}^{N}\mathbb I(Z_n;X\mid Z_1,\dots,Z_{n-1}) \]</div>
+      <p>Reveal the variables one at a time. Each one contributes only what it adds <i>given everything revealed before it</i>. The order changes the individual pieces but never the total (the two bars in Play).</p>
+      <h4>Worked example: XOR</h4>
+      <p>X, Y are independent fair coins and \(Z = X \oplus Y\) (1 when they differ). Alone, Y says nothing about X: \(\mathbb I(X;Y) = 0\). But once you know Z, Y tells you X exactly (\(X = Y \oplus Z\)):</p>
+      <div class="eq">\[ \mathbb I(X;Y|Z) = \mathbb H(X|Z) - \mathbb H(X|Y,Z) = 1 - 0 = 1 \text{ bit} \]</div>
+      <div class="note">So conditioning can <b>increase</b> MI, unlike entropy, where conditioning can only decrease it on average. In a three-circle Venn diagram, XOR's center region would be \(\mathbb I(X;Y) - \mathbb I(X;Y|Z) = -1\) bit: the negative region warned about in §6.3.2.</div>
+    </div>
+  </div>
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>Conditional MI</h3><div class="quizbox" data-quiz="cmi"></div></div>
+</section>
+
+<!-- ============ 6.3.5 GAUSSIAN ============ -->
+<section class="sec" id="gauss">
+  <div class="sec-head"><span class="secnum">§6.3.5</span><h2>MI as a "generalized correlation coefficient"</h2></div>
+  <div class="intro">
+    <p>For a jointly Gaussian pair, MI is a simple function of the correlation ρ: \(\mathbb I = -\tfrac12\log(1-\rho^2)\). Unlike ρ, though, MI also picks up <b>non-linear</b> relationships. A parabola or a circle can have ρ ≈ 0 and still have a lot of mutual information. The catch is that for real data you have to <i>estimate</i> MI, and the simplest estimator (binning) is sensitive to your choices.</p>
+  </div>
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>Scatter, bins, and the correlation curve</h3>
+    <div class="panel">
+      <div class="seg" id="gs-shape">
+        <button data-sh="gauss" class="on">Gaussian (ρ)</button>
+        <button data-sh="parab">Parabola</button>
+        <button data-sh="circle">Circle</button>
+        <button data-sh="sine">Sine wave</button>
+        <button data-sh="cross">X shape</button>
+        <button data-sh="indep">Independent</button>
+      </div>
+      <div class="two" style="margin-top:14px">
+        <div>
+          <svg class="plot" id="gs-scatter" aria-label="Scatter plot with histogram bins"></svg>
+          <div id="gs-rho-row" class="ctrl"><label for="gs-rho">ρ</label><input type="range" id="gs-rho" min="-0.99" max="0.99" step="0.01" value="0.7"><output id="gs-rho-o"></output></div>
+          <div id="gs-noise-row" class="ctrl" style="display:none"><label for="gs-noise">noise σ</label><input type="range" id="gs-noise" min="0" max="1" step="0.01" value="0.1"><output id="gs-noise-o"></output></div>
+          <div class="ctrl"><label for="gs-bins">bins per axis</label><input type="range" id="gs-bins" min="2" max="40" step="1" value="10"><output id="gs-bins-o"></output></div>
+          <div class="ctrl"><label for="gs-n">samples n</label><input type="range" id="gs-n" min="0" max="5" step="1" value="3"><output id="gs-n-o"></output></div>
+          <div class="btns"><button class="b" id="gs-resample">New sample</button><button class="b" id="gs-showbins">Hide bins</button></div>
+        </div>
+        <div>
+          <div class="readout">
+            <div class="stat"><div class="k">sample corr. r</div><div class="v" id="gs-r"></div></div>
+            <div class="stat x"><div class="k" id="gs-true-k">true I</div><div class="v" id="gs-true"></div></div>
+            <div class="stat m"><div class="k">binned estimate Î</div><div class="v" id="gs-hat"></div></div>
+          </div>
+          <p class="cap" style="margin-top:14px">I(ρ) = −½ log₂(1 − ρ²) for a Gaussian pair</p>
+          <svg class="plot" id="gs-curve" aria-label="Mutual information as a function of correlation"></svg>
+          <p class="cap" style="margin-top:12px">Binned estimate Î vs. number of bins (same sample)</p>
+          <svg class="plot" id="gs-sweep" aria-label="Binned MI estimate versus number of bins"></svg>
+        </div>
+      </div>
+      <p class="hint" id="gs-msg" style="margin:12px 0 0"></p>
+    </div>
+  </div>
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>Equations 6.64 – 6.70</h3>
+    <div class="mathcard">
+      <h4>Setup (6.64)</h4>
+      <div class="eq">\[ \begin{pmatrix}x\\y\end{pmatrix} \sim \mathcal N\!\left(\mathbf 0,\; \Sigma = \begin{pmatrix}\sigma^2 & \rho\sigma^2\\ \rho\sigma^2 & \sigma^2\end{pmatrix}\right) \]</div>
+      <p>Both variables have variance \(\sigma^2\); the off-diagonal \(\rho\sigma^2\) is their covariance, so ρ is their correlation.</p>
+      <div class="refresh"><div class="ttl">Tool from §6.1.6 (Eq. 6.26)</div>
+        The differential entropy of a d-dimensional Gaussian is \(h = \tfrac12\log\big[(2\pi e)^d \det\Sigma\big]\). It depends only on the covariance (spread), never on the mean. For d = 1 this is \(\tfrac12\log(2\pi e\sigma^2)\).</div>
+      <ol class="steps">
+        <li><div>\(\det\Sigma = \sigma^2\cdot\sigma^2 - (\rho\sigma^2)^2 = \sigma^4(1-\rho^2)\)<div class="why">2×2 determinant: \(ad - bc\).</div></div></li>
+        <li><div>\(h(X,Y) = \tfrac12\log\big[(2\pi e)^2\sigma^4(1-\rho^2)\big]\)<div class="why">Eq. 6.65: plug \(d=2\) and the determinant into the Gaussian entropy formula.</div></div></li>
+        <li><div>\(h(X) = h(Y) = \tfrac12\log(2\pi e\sigma^2)\)<div class="why">Eq. 6.66: each marginal is a 1-D Gaussian with variance \(\sigma^2\).</div></div></li>
+        <li><div>\(\mathbb I = h(X) + h(Y) - h(X,Y) = \log(2\pi e\sigma^2) - \tfrac12\log\big[(2\pi e)^2\sigma^4(1-\rho^2)\big]\)<div class="why">Eqs. 6.67–6.68: the 6.51 identity works for differential entropy too. The two marginal halves add to one full log.</div></div></li>
+        <li><div>\(= \tfrac12\log\big[(2\pi e\sigma^2)^2\big] - \tfrac12\log\big[(2\pi e\sigma^2)^2(1-\rho^2)\big]\)<div class="why">Eq. 6.69: write \(\log a = \tfrac12\log a^2\) and regroup \((2\pi e)^2\sigma^4 = (2\pi e\sigma^2)^2\) so both terms share a factor.</div></div></li>
+        <li><div>\(= \tfrac12\log\dfrac{1}{1-\rho^2} = \class{tm}{-\tfrac12\log(1-\rho^2)}\)<div class="why">Eq. 6.70: \(\log a - \log(ab) = -\log b\). Everything about \(\sigma\) and \(2\pi e\) cancels: MI ignores the units and scale of the variables.</div></div></li>
+      </ol>
+      <div class="scroll"><table class="t" style="max-width:560px">
+        <tr><th>ρ</th><td>0</td><td>±0.5</td><td>±0.9</td><td>±0.99</td><td>±0.999</td><td>±1</td></tr>
+        <tr><th>I (bits)</th><td>0</td><td>0.21</td><td>1.20</td><td>2.83</td><td>4.48</td><td>∞</td></tr>
+      </table></div>
+      <ul>
+        <li><b>ρ = 0</b>: independent (for Gaussians, uncorrelated means independent), so \(\mathbb I = 0\).</li>
+        <li><b>ρ = ±1</b>: Y = ±X. Seeing Y gives X's real value <i>exactly</i>, which is infinitely many bits of precision, so \(\mathbb I = \infty\).</li>
+        <li>Only \(\rho^2\) appears, so the sign doesn't matter: \(\rho = -0.8\) and \(+0.8\) carry the same information. You can invert it: \(\rho^2 = 1 - 2^{-2\mathbb I}\). That's why MI is called a <i>generalized</i> correlation.</li>
+      </ul>
+      <h4>When the data isn't Gaussian: estimating MI</h4>
+      <p>The <b>binning</b> (histogram) estimator chops each axis into B bins, counts points per cell to get an empirical joint pmf, and plugs that into Eq. 6.47. The problem is that the answer depends on B and on where the bin edges fall. Too many bins for the sample size means most cells hold 0 or 1 point, the empirical table looks "structured" even for pure noise, and the MI estimate is <b>biased upward</b>. Set the shape to "Independent" and push the bins slider to 40 to see it. Adaptive estimators like <b>KSG</b> (k-nearest-neighbor distances, used by <code>sklearn.feature_selection.mutual_info_regression</code>) avoid choosing bins.</p>
+      <div class="note">The book's logs here are natural logs (nats). This page shows bits; divide by \(\ln 2\) ≈ 0.693 to convert nats to bits.</div>
+    </div>
+  </div>
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>Gaussian MI</h3><div class="quizbox" data-quiz="gauss"></div></div>
+</section>
+
+<!-- ============ 6.3.8 DPI ============ -->
+<section class="sec" id="dpi">
+  <div class="sec-head"><span class="secnum">§6.3.8</span><h2>Data processing inequality: you can't un-lose information</h2></div>
+  <div class="intro">
+    <p>X is something you care about, Y is a noisy observation of it, and Z is anything you compute from Y. If Z only "sees" X through Y (a Markov chain \(X \to Y \to Z\)), then Z can never know more about X than Y did. Processing can throw information away or keep it, but it can't create any.</p>
+  </div>
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>The telephone game</h3>
+    <div class="panel">
+      <p class="hint">A 40-bit message X is passed down a line. Each hop flips every bit independently with probability ε. Amber squares differ from the original X. The bar on the right is the information each copy still holds about X.</p>
+      <div class="ctrl"><label for="dp-e">ε per hop</label><input type="range" id="dp-e" min="0" max="0.5" step="0.005" value="0.08"><output id="dp-e-o"></output></div>
+      <div class="ctrl"><label for="dp-k">hops</label><input type="range" id="dp-k" min="1" max="8" step="1" value="5"><output id="dp-k-o"></output></div>
+      <div class="bitrows" id="dp-rows" style="margin-top:12px"></div>
+      <div class="btns"><button class="b" id="dp-new">New message &amp; noise</button></div>
+    </div>
+    <div class="panel">
+      <h4>Can clever processing beat it?</h4>
+      <p class="hint">Now Y is <b>three</b> independent noisy copies of one bit X (each flipped with probability ε). Choose a processing function Z = f(Y). The table groups the 8 possible Y patterns by the Z value they map to (the colored edge).</p>
+      <div class="ctrl"><label for="dp3-e">ε per copy</label><input type="range" id="dp3-e" min="0" max="0.5" step="0.005" value="0.2"><output id="dp3-e-o"></output></div>
+      <div class="seg" id="dp3-f">
+        <button data-f="maj" class="on">majority vote</button>
+        <button data-f="sum">count of 1s</button>
+        <button data-f="first">first copy only</button>
+        <button data-f="par">parity (XOR)</button>
+        <button data-f="sorted">sort the copies</button>
+        <button data-f="agree">all copies agree?</button>
+      </div>
+      <div class="two" style="margin-top:14px">
+        <div class="scroll"><table class="t pat" id="dp3-table"></table></div>
+        <div>
+          <div class="ibars" id="dp3-bars"></div>
+          <div class="iscale"><span>0</span><span>1 bit</span></div>
+          <div class="readout" style="margin-top:14px">
+            <div class="stat"><div class="k">best-guess accuracy from Y</div><div class="v" id="dp3-accY"></div></div>
+            <div class="stat"><div class="k">best-guess accuracy from Z</div><div class="v" id="dp3-accZ"></div></div>
+          </div>
+          <p class="hint" id="dp3-msg" style="margin-top:12px"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>Theorem 6.3.1, Equations 6.77 – 6.79</h3>
+    <div class="mathcard">
+      <h4>What the Markov chain means</h4>
+      <p>\(X \to Y \to Z\) means \(p(x,y,z) = p(x)\,p(y|x)\,p(z|y)\): Z is generated from Y alone. Equivalently \(X \perp Z \mid Y\): once you know Y, X tells you nothing more about Z. (The three-copies panel fits: Z is computed from Y.)</p>
+      <h4>The proof, one line at a time</h4>
+      <ol class="steps">
+        <li><div>\(\mathbb I(X;Y,Z) = \class{tx}{\mathbb I(X;Z)} + \class{ta}{\mathbb I(X;Y|Z)}\)<div class="why">Eq. 6.77: chain rule (6.62), revealing Z first then Y.</div></div></li>
+        <li><div>\(\mathbb I(X;Y,Z) = \class{tm}{\mathbb I(X;Y)} + \class{tg}{\mathbb I(X;Z|Y)}\)<div class="why">Eq. 6.78: same chain rule, revealing Y first then Z. The total is the same either way.</div></div></li>
+        <li><div>\(\class{tg}{\mathbb I(X;Z|Y)} = 0\)<div class="why">Markov property \(X\perp Z\mid Y\): within each slice Y = y, X and Z are independent, so every slice MI is 0, and so is their average.</div></div></li>
+        <li><div>\(\class{tx}{\mathbb I(X;Z)} + \class{ta}{\mathbb I(X;Y|Z)} = \class{tm}{\mathbb I(X;Y)}\)<div class="why">Eq. 6.79: set the two expansions equal and drop the zero.</div></div></li>
+        <li><div>\(\class{tm}{\mathbb I(X;Y)} \ge \class{tx}{\mathbb I(X;Z)}\)<div class="why">\(\mathbb I(X;Y|Z) \ge 0\), like any MI. The amount you lose is exactly \(\mathbb I(X;Y|Z)\): what Y still knew about X that Z threw away. Same argument gives \(\mathbb I(Y;Z)\ge\mathbb I(X;Z)\).</div></div></li>
+      </ol>
+      <h4>Why the telephone bars only go down</h4>
+      <p>Each hop is a processing step: \(X \to Y_1 \to Y_2 \to \cdots\). Two hops flip a bit only if exactly one of them flips it, so the total flip probability after k hops is</p>
+      <div class="eq">\[ \varepsilon_k = \tfrac12\big(1 - (1-2\varepsilon)^k\big), \qquad \mathbb I(X;Y_k) = 1 - \mathbb H_b(\varepsilon_k) \text{ bits for a fair-coin X}, \]</div>
+      <p>where \(\mathbb H_b\) is the binary entropy from §6.1. As k grows, \(\varepsilon_k \to \tfrac12\) and the information goes to 0. No later hop can fix an earlier mistake, because it only sees the corrupted copy.</p>
+      <div class="note"><b>Information vs. accuracy.</b> Majority vote gets the same best-guess accuracy as using all three copies, but it still loses information: it lumps "000" (very sure X = 0) with "001" (less sure). DPI is about information, which keeps track of <i>how confident</i> you can be, not just which answer you'd guess. "Count of 1s" loses nothing, because patterns with the same count have the same likelihood ratio. That idea is the next section.</div>
+    </div>
+  </div>
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>Data processing</h3><div class="quizbox" data-quiz="dpi"></div></div>
+</section>
+
+<!-- ============ 6.3.9 SUFFICIENT STATISTICS ============ -->
+<section class="sec" id="suff">
+  <div class="sec-head"><span class="secnum">§6.3.9</span><h2>Sufficient statistics: compress without losing θ</h2></div>
+  <div class="intro">
+    <p>Apply DPI to learning: an unknown parameter θ generates data D, and you summarize the data with a statistic s(D). The chain \(\theta \to D \to s(D)\) means the summary can't know more about θ than the raw data. If it knows <b>exactly as much</b>, the summary is <b>sufficient</b>: you can throw the raw data away and lose nothing about θ.</p>
+  </div>
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>Coin flips: which summaries are sufficient?</h3>
+    <div class="panel">
+      <p class="hint">An unknown coin bias θ (uniform prior) produces N flips. Click a coin to flip it, or generate new data. Pick a statistic on the right: the <span style="color:var(--x)">blue</span> posterior uses the whole sequence D, the <span style="color:var(--mi)">purple dashed</span> one uses only s(D). The bars show I(θ; s(D)) for every statistic against I(θ; D).</p>
+      <div class="two">
+        <div>
+          <div class="ctrl"><label for="sf-N">N flips</label><input type="range" id="sf-N" min="1" max="20" step="1" value="10"><output id="sf-N-o"></output></div>
+          <div class="ctrl"><label for="sf-th">true θ (to generate)</label><input type="range" id="sf-th" min="0.05" max="0.95" step="0.01" value="0.7"><output id="sf-th-o"></output></div>
+          <div class="coins" id="sf-coins" style="margin-top:10px"></div>
+          <div class="btns"><button class="b" id="sf-new">New flips</button><button class="b" id="sf-shuf">Shuffle the order</button></div>
+          <p class="cap" style="margin-top:14px" id="sf-postcap">Posterior over θ</p>
+          <svg class="plot" id="sf-post" aria-label="Posterior over theta from D and from the statistic"></svg>
+        </div>
+        <div>
+          <div class="statlist" id="sf-stats"></div>
+          <div class="refresh live" id="sf-out" style="margin-bottom:0"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>Equations 6.80 – 6.81</h3>
+    <div class="mathcard">
+      <h4>DPI applied to statistics (6.80)</h4>
+      <div class="eq">\[ \theta \to D \to s(D) \quad\Longrightarrow\quad \mathbb I\big(\theta; s(D)\big) \;\le\; \mathbb I(\theta; D) \]</div>
+      <p>s(D) is computed from D alone, so it's a Markov chain and DPI applies. <b>Sufficient</b> means equality: \(\mathbb I(\theta; s(D)) = \mathbb I(\theta; D)\). Then the chain can also be written \(\theta \to s(D) \to D\): given the summary, the rest of the data is just noise that doesn't depend on θ.</p>
+      <h4>Why N₁ (the number of heads) is sufficient for a coin</h4>
+      <ol class="steps">
+        <li><div>\(p(D|\theta) = \prod_{n=1}^{N}\theta^{x_n}(1-\theta)^{1-x_n}\)<div class="why">Flips are independent; each contributes θ if heads (\(x_n=1\)) and \(1-\theta\) if tails.</div></div></li>
+        <li><div>\(= \theta^{\class{tm}{N_1}}(1-\theta)^{N-\class{tm}{N_1}}\)<div class="why">Collect the exponents: \(N_1 = \sum_n \mathbb I(x_n = 1)\). The order of the flips has disappeared, and only the count is left.</div></div></li>
+        <li><div>\(p(\theta|D) \propto p(\theta)\,\theta^{N_1}(1-\theta)^{N-N_1} = p(\theta|N_1)\)<div class="why">Bayes' rule. Two datasets with the same N₁ give identical posteriors. Try "Shuffle the order": the blue curve doesn't move.</div></div></li>
+        <li><div>\(p(D\,|\,N_1,\theta) = 1\big/\tbinom{N}{N_1}\)<div class="why">Given the count, every ordering is equally likely <i>no matter what θ is</i>. So once you know N₁, the sequence carries no further information about θ: \(\theta \to N_1 \to D\).</div></div></li>
+      </ol>
+      <h4>Minimal sufficient statistics (6.81)</h4>
+      <div class="eq">\[ \theta \;\to\; \class{tm}{s(D)} \;\to\; s'(D) \;\to\; D \]</div>
+      <p>Many statistics are sufficient: D itself is (trivially), and so is "the sorted sequence" or "(N₁, the first flip)". A <b>minimal</b> sufficient statistic s keeps the relevant information and nothing else: it can be computed from <i>any</i> other sufficient statistic, \(s(D) = f(s'(D))\). Each step rightward in the chain adds redundant detail. For N coin flips, the minimal one is \((N, N_1)\).</p>
+      <div class="refresh"><div class="ttl">Same idea, Gaussian mean</div>
+        With known variance, \(p(D|\mu) \propto \exp\!\big(\tfrac{\mu}{\sigma^2}\sum_n x_n - \tfrac{N\mu^2}{2\sigma^2}\big)\) times terms without μ. The data enters only through \(\sum_n x_n\), equivalently the empirical mean \(\bar x\) and N. Those two numbers are all you need to infer μ.</div>
+    </div>
+  </div>
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>Sufficient statistics</h3><div class="quizbox" data-quiz="suff"></div></div>
+</section>
+
+<!-- ============ CHEAT SHEET ============ -->
+<section class="sec" id="cheat">
+  <div class="sec-head"><span class="secnum">Summary</span><h2>Cheat sheet</h2></div>
+  <div class="block">
+    <div class="panel scroll">
+      <table class="vs">
+        <thead><tr><th>Quantity</th><th>Formula</th><th>Plain reading</th></tr></thead>
+        <tbody>
+          <tr><th>MI (6.47)</th><td>\(D_{\mathbb{KL}}(p(x,y)\,\|\,p(x)p(y))\)</td><td>how far the joint is from independence; \(\ge 0\), \(=0\) iff independent</td></tr>
+          <tr><th>6.49</th><td>\(\mathbb H(X) - \mathbb H(X|Y)\)</td><td>uncertainty about X removed by seeing Y (symmetric)</td></tr>
+          <tr><th>6.51</th><td>\(\mathbb H(X) + \mathbb H(Y) - \mathbb H(X,Y)\)</td><td>overlap of the two circles</td></tr>
+          <tr><th>Bounds</th><td>\(0 \le \mathbb I(X;Y) \le \min(\mathbb H(X), \mathbb H(Y))\)</td><td>can't share more than either one has</td></tr>
+          <tr><th>Conditional MI</th><td>\(\mathbb H(X|Z) - \mathbb H(X|Y,Z)\)</td><td>what Y adds about X beyond Z; can be larger <i>or</i> smaller than \(\mathbb I(X;Y)\)</td></tr>
+          <tr><th>Chain rule</th><td>\(\mathbb I(Z,Y;X) = \mathbb I(Z;X) + \mathbb I(Y;X|Z)\)</td><td>reveal variables one at a time</td></tr>
+          <tr><th>Gaussian</th><td>\(-\tfrac12\log(1-\rho^2)\)</td><td>0 at ρ = 0, ∞ at ρ = ±1, depends only on ρ²</td></tr>
+          <tr><th>DPI</th><td>\(X\to Y\to Z \Rightarrow \mathbb I(X;Y)\ge \mathbb I(X;Z)\)</td><td>processing can't create information</td></tr>
+          <tr><th>Sufficient s(D)</th><td>\(\mathbb I(\theta;s(D)) = \mathbb I(\theta;D)\)</td><td>a summary that loses nothing about θ (coins: N₁)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer>Built as a study companion for CS 473 from Murphy, <i>Probabilistic Machine Learning: An Introduction</i>, §6.3 (§6.3.6, 6.3.7 and 6.3.10 omitted). All information quantities are exact sums over the discrete tables shown, except the binned estimate in §6.3.5 (computed from a seeded random sample) and the posterior in §6.3.9 (a 400-point grid over θ).</footer>
+</main>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const LN2 = Math.log(2);
+const log2 = x => Math.log(x) / LN2;
+const H2 = p => p.reduce((s, v) => v > 1e-15 ? s - v * log2(v) : s, 0);
+const Hb = e => H2([e, 1 - e]);
+const clean = v => Math.abs(v) < 5e-4 ? 0 : v;
+const f2 = (x, d = 2) => Number.isFinite(x) ? clean(x).toFixed(d) : '∞';
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const sum = a => a.reduce((s, v) => s + v, 0);
+function scale(d0, d1, r0, r1) { const k = (r1 - r0) / (d1 - d0); const f = v => r0 + (v - d0) * k; f.inv = r => d0 + (r - r0) / k; return f; }
+function svgPt(svg, e) { const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; return pt.matrixTransform(svg.getScreenCTM().inverse()); }
+function pathFrom(xs, ys, sx, sy) { let s = ''; for (let i = 0; i < xs.length; i++) s += (i ? 'L' : 'M') + sx(xs[i]).toFixed(1) + ',' + sy(ys[i]).toFixed(1); return s; }
+function unit(v, u) { return `${v}<span class="u">${u}</span>`; }
+const bitsU = v => unit(f2(v), 'bits');
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function randn(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+function segBtns(el, attr, cb) {
+  el.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $$('button', el).forEach(x => x.classList.toggle('on', x === b));
+    cb(b.dataset[attr]);
+  });
+}
+
+/* MI on a 2-D table: rows = x, cols = y */
+function info2(P) {
+  const px = P.map(r => sum(r));
+  const py = P[0].map((_, j) => P.reduce((a, r) => a + r[j], 0));
+  const Hx = H2(px), Hy = H2(py), Hxy = H2(P.flat());
+  const I = Math.max(0, Hx + Hy - Hxy);
+  return { px, py, Hx, Hy, Hxy, I, HxgY: Math.max(0, Hxy - Hy), HygX: Math.max(0, Hxy - Hx) };
+}
+
+/* Stacked information bars */
+function ibars(el, rows, maxBits) {
+  el.innerHTML = rows.map(r => `<div class="irow"><div class="lab">${r.lab}</div><div class="itrack">${r.segs.map(s => {
+    const w = Math.max(0, s.w) / maxBits;
+    return `<div class="${s.cls}" style="left:${(s.from / maxBits * 100).toFixed(2)}%;width:${(w * 100).toFixed(2)}%" title="${s.text}">${w > 0.12 ? s.text : ''}</div>`;
+  }).join('')}</div></div>`).join('');
+}
+
+/* Heat grid used by §6.3.1 and §6.3.4 */
+function drawGrid(svg, M, o) {
+  const R = M.length, C = M[0].length, cs = o.cs, gx = 44, gy = 30;
+  const right = o.reserve ? 84 : 8, bottom = o.reserve ? 56 : 8;
+  const W = gx + C * cs + right, H = gy + R * cs + bottom;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  let s = '';
+  for (let j = 0; j < C; j++) s += `<text class="ax" x="${gx + (j + .5) * cs}" y="${gy - 9}" text-anchor="middle">${o.colLab[j]}</text>`;
+  for (let i = 0; i < R; i++) s += `<text class="ax" x="${gx - 7}" y="${gy + (i + .5) * cs + 4}" text-anchor="end">${o.rowLab[i]}</text>`;
+  for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) {
+    const v = M[i][j], f = o.fill(v, i, j), foc = o.focus && o.focus[0] === i && o.focus[1] === j;
+    const x = gx + j * cs + 2, y = gy + i * cs + 2, cx = gx + (j + .5) * cs, cy = gy + (i + .5) * cs;
+    s += `<rect x="${x}" y="${y}" width="${cs - 4}" height="${cs - 4}" rx="6" style="fill:${f.c};fill-opacity:${f.a.toFixed(3)};stroke:${foc ? 'var(--ink)' : 'var(--rule)'};stroke-width:${foc ? 2 : 1}"/>`;
+    s += `<text class="cv" x="${cx}" y="${cy + (o.sub ? 0 : 5)}" text-anchor="middle">${o.label(v, i, j)}</text>`;
+    if (o.sub) s += `<text class="cv sm" x="${cx}" y="${cy + 15}" text-anchor="middle">${o.sub(v, i, j)}</text>`;
+  }
+  if (o.margX) {
+    const x0 = gx + C * cs + 6;
+    s += `<text class="ax" x="${x0}" y="${gy - 9}" style="fill:var(--x)">p(x)</text>`;
+    o.margX.forEach((v, i) => {
+      const w = v * 44, y = gy + i * cs + cs * .32;
+      s += `<rect x="${x0}" y="${y}" width="${w.toFixed(1)}" height="${(cs * .36).toFixed(1)}" rx="2" style="fill:var(--x);opacity:.75"/><text class="ax" x="${x0 + w + 4}" y="${y + cs * .18 + 4}">${v.toFixed(2)}</text>`;
+    });
+  }
+  if (o.margY) {
+    const y0 = gy + R * cs + 6;
+    s += `<text class="ax" x="${gx - 7}" y="${y0 + 12}" text-anchor="end" style="fill:var(--y)">p(y)</text>`;
+    o.margY.forEach((v, j) => {
+      const h = v * 30, x = gx + j * cs + cs * .32;
+      s += `<rect x="${x}" y="${y0}" width="${(cs * .36).toFixed(1)}" height="${h.toFixed(1)}" rx="2" style="fill:var(--y);opacity:.75"/><text class="ax" x="${x + cs * .18}" y="${y0 + h + 12}" text-anchor="middle">${v.toFixed(2)}</text>`;
+    });
+  }
+  svg.innerHTML = s;
+  return { gx, gy, cs, R, C };
+}
+
+/* ---------- Hero diagram ---------- */
+(function () {
+  const svg = $('#hero-venn');
+  svg.innerHTML = `
+    <circle cx="225" cy="75" r="62" style="fill:var(--x);fill-opacity:.16;stroke:var(--x);stroke-width:2"/>
+    <circle cx="315" cy="75" r="62" style="fill:var(--y);fill-opacity:.14;stroke:var(--y);stroke-width:2"/>
+    <path d="M270,32.35 A62,62 0 0 1 270,117.65 A62,62 0 0 1 270,32.35Z" style="fill:var(--mi);fill-opacity:.5"/>
+    <text x="198" y="80" text-anchor="middle" style="font-family:var(--mono);font-size:12px;fill:var(--x)">H(X|Y)</text>
+    <text x="270" y="80" text-anchor="middle" style="font-family:var(--mono);font-size:12px;font-weight:600;fill:var(--ink)">I(X;Y)</text>
+    <text x="342" y="80" text-anchor="middle" style="font-family:var(--mono);font-size:12px;fill:var(--y)">H(Y|X)</text>
+    <text x="150" y="40" text-anchor="end" style="font-family:var(--display);font-weight:700;font-size:16px;fill:var(--x)">H(X)</text>
+    <text x="390" y="40" style="font-family:var(--display);font-weight:700;font-size:16px;fill:var(--y)">H(Y)</text>
+    <text x="270" y="148" text-anchor="middle" style="font-family:var(--mono);font-size:11px;fill:var(--muted)">union = H(X,Y)</text>`;
+})();
+
+/* ---------- §6.3.1 Definition ---------- */
+const DEF = (function () {
+  const norm = M => { const t = sum(M.flat()); return M.map(r => r.map(v => v / t)); };
+  const outer = (a, b) => a.map(u => b.map(v => u * v));
+  const presets = {
+    noisy: norm([[.24, .05, .03], [.05, .24, .05], [.03, .05, .26]]),
+    copy: norm([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
+    perm: norm([[0, 1, 0], [0, 0, 1], [1, 0, 0]]),
+    func: norm([[.3, 0, 0], [.3, 0, 0], [0, 0, .4]]),
+    indep: outer([.5, .3, .2], [.2, .5, .3])
+  };
+  let P = presets.noisy.map(r => r.slice()), lam = 0, foc = [0, 0], hov = null, drag = null;
+  const listeners = [];
+  const jsvg = $('#def-joint'), psvg = $('#def-prod'), csvg = $('#def-contrib');
+  const labs = { rowLab: ['x=1', 'x=2', 'x=3'], colLab: ['y=1', 'y=2', 'y=3'] };
+  let geo = null;
+  function eff() { const { px, py } = info2(P); return P.map((r, i) => r.map((v, j) => (1 - lam) * v + lam * px[i] * py[j])); }
+  function render() {
+    const E = eff(), inf = info2(E);
+    const prod = outer(inf.px, inf.py);
+    const Cm = E.map((r, i) => r.map((v, j) => v > 1e-12 ? v * log2(v / prod[i][j]) : 0));
+    const maxP = Math.max(...E.flat(), ...prod.flat(), 1e-9), maxC = Math.max(...Cm.flat().map(Math.abs), 1e-9);
+    const pf = v => ({ c: 'var(--x)', a: .05 + .6 * v / maxP });
+    const cell = hov || foc;
+    geo = drawGrid(jsvg, E, { ...labs, cs: 62, reserve: true, fill: pf, label: v => v.toFixed(2), margX: inf.px, margY: inf.py, focus: cell });
+    drawGrid(psvg, prod, { ...labs, cs: 62, reserve: true, fill: pf, label: v => v.toFixed(2), margX: inf.px, margY: inf.py, focus: cell });
+    drawGrid(csvg, Cm, {
+      ...labs, cs: 62, reserve: true, focus: cell,
+      fill: v => ({ c: v >= 0 ? 'var(--mi)' : 'var(--amber)', a: .05 + .65 * Math.abs(v) / maxC }),
+      label: (v, i, j) => E[i][j] > 1e-12 ? (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2) : '0',
+      sub: (v, i, j) => E[i][j] > 1e-12 ? '×' + (E[i][j] / prod[i][j]).toFixed(2) : 'never'
+    });
+    $('#def-I').innerHTML = bitsU(inf.I);
+    $('#def-HX').innerHTML = bitsU(inf.Hx);
+    $('#def-HY').innerHTML = bitsU(inf.Hy);
+    const neg = sum(Cm.flat().filter(v => v < 0));
+    $('#def-neg').innerHTML = unit(neg < -5e-4 ? '−' + Math.abs(neg).toFixed(2) : '0.00', 'bits');
+    const [i, j] = cell, p = E[i][j], q = prod[i][j];
+    $('#def-cell').innerHTML = p > 1e-12
+      ? `cell x=${i + 1}, y=${j + 1}: p(x,y) = <b>${p.toFixed(3)}</b> · p(x)p(y) = ${inf.px[i].toFixed(3)} × ${inf.py[j].toFixed(3)} = <b>${q.toFixed(3)}</b><br>ratio = ${(p / q).toFixed(2)} → log₂ ratio = ${(log2(p / q) >= 0 ? '+' : '−') + Math.abs(log2(p / q)).toFixed(2)} bits → weighted by p(x,y): <b style="color:${Cm[i][j] >= 0 ? 'var(--mi)' : 'var(--amber)'}">${(Cm[i][j] >= 0 ? '+' : '−') + Math.abs(Cm[i][j]).toFixed(3)} bits</b> ${p / q > 1.0005 ? '(happens more often than chance)' : p / q < 0.9995 ? '(happens less often than chance)' : '(exactly as often as chance)'}`
+      : `cell x=${i + 1}, y=${j + 1}: p(x,y) = 0, so this pair never happens and contributes 0 (convention 0·log 0 = 0), even though independence would predict ${q.toFixed(3)}.`;
+    listeners.forEach(f => f(E));
+  }
+  function setCell(i, j, v) {
+    v = clamp(Math.round(v * 200) / 200, 0, 1);
+    const rest = 1 - P[i][j], nr = 1 - v;
+    P = P.map((r, a) => r.map((w, b) => (a === i && b === j) ? v : (rest > 1e-9 ? w * nr / rest : nr / 8)));
+    render();
+  }
+  function hit(e) {
+    const pt = svgPt(jsvg, e), j = Math.floor((pt.x - geo.gx) / geo.cs), i = Math.floor((pt.y - geo.gy) / geo.cs);
+    return (i >= 0 && i < 3 && j >= 0 && j < 3) ? { i, j, y: pt.y } : null;
+  }
+  jsvg.addEventListener('pointerdown', e => {
+    const h = hit(e); if (!h) return;
+    // translate drag distance to probability in the SVG's own units
+    drag = { i: h.i, j: h.j, y0: h.y, v0: P[h.i][h.j] }; foc = [h.i, h.j]; hov = null;
+    jsvg.setPointerCapture(e.pointerId); e.preventDefault(); render();
+  });
+  jsvg.addEventListener('pointermove', e => {
+    if (drag) { setCell(drag.i, drag.j, drag.v0 + (drag.y0 - svgPt(jsvg, e).y) / 150); return; }
+    const h = hit(e), nh = h ? [h.i, h.j] : null;
+    if (String(nh) !== String(hov)) { hov = nh; render(); }
+  });
+  const end = () => { drag = null; };
+  jsvg.addEventListener('pointerup', end); jsvg.addEventListener('pointercancel', end);
+  jsvg.addEventListener('pointerleave', () => { if (!drag && hov) { hov = null; render(); } });
+  jsvg.addEventListener('keydown', e => {
+    let [i, j] = foc;
+    if (e.key === 'ArrowLeft') j = (j + 2) % 3; else if (e.key === 'ArrowRight') j = (j + 1) % 3;
+    else if (e.key === 'ArrowUp') i = (i + 2) % 3; else if (e.key === 'ArrowDown') i = (i + 1) % 3;
+    else if (e.key === '+' || e.key === '=') { setCell(i, j, P[i][j] + 0.03); e.preventDefault(); return; }
+    else if (e.key === '-' || e.key === '_') { setCell(i, j, P[i][j] - 0.03); e.preventDefault(); return; }
+    else return;
+    foc = [i, j]; hov = null; render(); e.preventDefault();
+  });
+  const lamIn = $('#def-lam');
+  lamIn.addEventListener('input', () => { lam = +lamIn.value; $('#def-lam-o').textContent = lam.toFixed(2); render(); });
+  $$('[data-def]').forEach(b => b.addEventListener('click', () => {
+    P = presets[b.dataset.def].map(r => r.slice()); lam = 0; lamIn.value = 0; $('#def-lam-o').textContent = '0.00'; render();
+  }));
+  render();
+  return { get: eff, on: f => listeners.push(f) };
+})();
+
+/* ---------- §6.3.2 Venn diagram ---------- */
+(function () {
+  let src = 'chan', mode = 'none';
+  const svg = $('#vn-svg'), aIn = $('#vn-a'), eIn = $('#vn-e');
+  const W = 560, H = 250, cy = 122, mid = 280, R1 = 82; // radius of a 1-bit circle
+  function lens(r1, r2, d) {
+    if (d >= r1 + r2) return 0;
+    if (d <= Math.abs(r1 - r2)) return Math.PI * Math.min(r1, r2) ** 2;
+    const a = r1 * r1 * Math.acos(clamp((d * d + r1 * r1 - r2 * r2) / (2 * d * r1), -1, 1));
+    const b = r2 * r2 * Math.acos(clamp((d * d + r2 * r2 - r1 * r1) / (2 * d * r2), -1, 1));
+    const c = 0.5 * Math.sqrt(Math.max(0, (-d + r1 + r2) * (d + r1 - r2) * (d - r1 + r2) * (d + r1 + r2)));
+    return a + b - c;
+  }
+  function solveD(r1, r2, A) {
+    let lo = Math.abs(r1 - r2), hi = r1 + r2;
+    for (let k = 0; k < 60; k++) { const m = (lo + hi) / 2; if (lens(r1, r2, m) > A) lo = m; else hi = m; }
+    return (lo + hi) / 2;
+  }
+  function joint() {
+    if (src === 'table') return DEF.get();
+    const a = +aIn.value, e = +eIn.value;
+    return [[(1 - a) * (1 - e), (1 - a) * e], [a * e, a * (1 - e)]];
+  }
+  function render() {
+    $('#vn-a-o').textContent = (+aIn.value).toFixed(2);
+    $('#vn-e-o').textContent = (+eIn.value).toFixed(3);
+    const inf = info2(joint());
+    const r1 = R1 * Math.sqrt(inf.Hx), r2 = R1 * Math.sqrt(inf.Hy);
+    let d;
+    if (r1 < 0.5 || r2 < 0.5) d = r1 + r2 + 12;
+    else d = solveD(r1, r2, Math.min(Math.PI * R1 * R1 * inf.I, Math.PI * Math.min(r1, r2) ** 2 * 0.9999));
+    let cx1 = mid - d / 2, cx2 = mid + d / 2;
+    const off = ((cx1 - r1) + (cx2 + r2)) / 2 - mid; cx1 -= off; cx2 -= off;
+    const op = { none: [.26, .26, .55], a: [.26, .05, .75], b: [.05, .26, .75], c: [.26, .26, .75], d: [.26, .26, .75] }[mode];
+    const hx = { a: 1, c: 1, d: 1 }[mode], hy = { b: 1, c: 1, d: 1 }[mode];
+    let s = `<defs>
+      <pattern id="vn-hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" style="stroke:var(--ink);stroke-width:1.6;opacity:.55"/></pattern>
+      <mask id="vn-mx" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="white"/><circle cx="${cx2}" cy="${cy}" r="${r2}" fill="black"/></mask>
+      <mask id="vn-my" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="white"/><circle cx="${cx1}" cy="${cy}" r="${r1}" fill="black"/></mask>
+      <clipPath id="vn-c1"><circle cx="${cx1}" cy="${cy}" r="${r1}"/></clipPath></defs>`;
+    s += `<circle cx="${cx1}" cy="${cy}" r="${r1}" mask="url(#vn-mx)" style="fill:var(--x);fill-opacity:${op[0]}"/>`;
+    s += `<circle cx="${cx2}" cy="${cy}" r="${r2}" mask="url(#vn-my)" style="fill:var(--y);fill-opacity:${op[1]}"/>`;
+    s += `<circle cx="${cx2}" cy="${cy}" r="${r2}" clip-path="url(#vn-c1)" style="fill:var(--mi);fill-opacity:${op[2]}"/>`;
+    if (hx) s += `<circle cx="${cx1}" cy="${cy}" r="${r1}" mask="url(#vn-mx)" style="fill:url(#vn-hatch)"/>`;
+    if (hy) s += `<circle cx="${cx2}" cy="${cy}" r="${r2}" mask="url(#vn-my)" style="fill:url(#vn-hatch)"/>`;
+    s += `<circle cx="${cx1}" cy="${cy}" r="${r1}" style="fill:none;stroke:var(--x);stroke-width:2"/>`;
+    s += `<circle cx="${cx2}" cy="${cy}" r="${r2}" style="fill:none;stroke:var(--y);stroke-width:2"/>`;
+    // region labels when the region is wide enough
+    const lab = (x, w, t, v, col) => w > 52 ? `<text x="${x}" y="${cy - 2}" text-anchor="middle" style="font-family:var(--mono);font-size:12px;fill:${col}">${t}</text><text x="${x}" y="${cy + 15}" text-anchor="middle" style="font-family:var(--mono);font-size:12px;font-weight:600;fill:var(--ink)">${f2(v)}</text>` : '';
+    const xoW = (cx2 - r2) - (cx1 - r1), lnW = (cx1 + r1) - Math.max(cx2 - r2, cx1 - r1), yoW = (cx2 + r2) - (cx1 + r1);
+    s += lab((cx1 - r1 + cx2 - r2) / 2, xoW, 'H(X|Y)', inf.HxgY, 'var(--x)');
+    if (inf.I > 0.005) s += lab((Math.max(cx2 - r2, cx1 - r1) + Math.min(cx1 + r1, cx2 + r2)) / 2, Math.min(lnW, 2 * r2), 'I(X;Y)', inf.I, 'var(--mi)');
+    s += lab((cx1 + r1 + cx2 + r2) / 2, yoW, 'H(Y|X)', inf.HygX, 'var(--y)');
+    s += `<text x="${cx1 - r1 - 8}" y="${cy - 4}" text-anchor="end" style="font-family:var(--display);font-weight:700;font-size:15px;fill:var(--x)">H(X)</text><text x="${cx1 - r1 - 8}" y="${cy + 13}" text-anchor="end" class="ax">${f2(inf.Hx)}</text>`;
+    s += `<text x="${cx2 + r2 + 8}" y="${cy - 4}" style="font-family:var(--display);font-weight:700;font-size:15px;fill:var(--y)">H(Y)</text><text x="${cx2 + r2 + 8}" y="${cy + 13}" class="ax">${f2(inf.Hy)}</text>`;
+    s += `<text x="${mid}" y="${H - 6}" text-anchor="middle" class="ax">union = H(X,Y) = ${f2(inf.Hxy)} bits</text>`;
+    svg.innerHTML = s;
+    const X = `<span class="tx">H(X)</span>`, Y = `<span class="ty">H(Y)</span>`, XY = `<span class="tj">H(X,Y)</span>`,
+      XgY = `<span class="tx">H(X|Y)</span>`, YgX = `<span class="ty">H(Y|X)</span>`, I = `<span class="tm">I(X;Y)</span>`;
+    const v = x => f2(x);
+    $('#vn-eq').innerHTML = {
+      none: `${X} = ${v(inf.Hx)} · ${Y} = ${v(inf.Hy)} · ${XY} = ${v(inf.Hxy)} · ${I} = <span class="tm">${v(inf.I)}</span> bits`,
+      a: `${I} = ${X} − ${XgY} = ${v(inf.Hx)} − ${v(inf.HxgY)} = <span class="tm">${v(inf.I)}</span> bits &nbsp;·&nbsp; "how much Y reduces uncertainty about X"`,
+      b: `${I} = ${Y} − ${YgX} = ${v(inf.Hy)} − ${v(inf.HygX)} = <span class="tm">${v(inf.I)}</span> bits &nbsp;·&nbsp; "how much X reduces uncertainty about Y"`,
+      c: `${I} = ${XY} − ${XgY} − ${YgX} = ${v(inf.Hxy)} − ${v(inf.HxgY)} − ${v(inf.HygX)} = <span class="tm">${v(inf.I)}</span> bits &nbsp;·&nbsp; "union minus both crescents"`,
+      d: `${I} = ${X} + ${Y} − ${XY} = ${v(inf.Hx)} + ${v(inf.Hy)} − ${v(inf.Hxy)} = <span class="tm">${v(inf.I)}</span> bits &nbsp;·&nbsp; "overlap counted twice, union subtracted once"`
+    }[mode];
+    const maxB = src === 'table' ? log2(9) : 2;
+    $('#vn-scale').textContent = `${f2(maxB)} bits`;
+    ibars($('#vn-bars'), [
+      { lab: 'H(X)', segs: [{ from: 0, w: inf.HxgY, cls: 'seg-x', text: 'H(X|Y) ' + v(inf.HxgY) }, { from: inf.HxgY, w: inf.I, cls: 'seg-m', text: 'I ' + v(inf.I) }] },
+      { lab: 'H(X,Y)', segs: [{ from: 0, w: inf.HxgY, cls: 'seg-x', text: 'H(X|Y) ' + v(inf.HxgY) }, { from: inf.HxgY, w: inf.I, cls: 'seg-m', text: 'I ' + v(inf.I) }, { from: inf.HxgY + inf.I, w: inf.HygX, cls: 'seg-y', text: 'H(Y|X) ' + v(inf.HygX) }] },
+      { lab: 'H(Y)', segs: [{ from: inf.HxgY, w: inf.I, cls: 'seg-m', text: 'I ' + v(inf.I) }, { from: inf.HxgY + inf.I, w: inf.HygX, cls: 'seg-y', text: 'H(Y|X) ' + v(inf.HygX) }] }
+    ], maxB);
+  }
+  segBtns($('#vn-src'), 'src', s => {
+    src = s;
+    $('#vn-chan-ctrls').style.display = s === 'chan' ? '' : 'none';
+    $('#vn-table-note').style.display = s === 'table' ? '' : 'none';
+    render();
+  });
+  segBtns($('#vn-mode'), 'm', m => { mode = m; render(); });
+  aIn.addEventListener('input', render); eIn.addEventListener('input', render);
+  DEF.on(() => { if (src === 'table') render(); });
+  render();
+})();
+
+/* ---------- §6.3.3 Even & prime ---------- */
+(function () {
+  const isPrime = n => { if (n < 2) return false; for (let k = 2; k * k <= n; k++) if (n % k === 0) return false; return true; };
+  const NIn = $('#ex-N');
+  let obs = 'none';
+  function render() {
+    const N = +NIn.value;
+    $('#ex-N-o').textContent = N;
+    const c = [[0, 0], [0, 0]];
+    let tiles = '';
+    for (let n = 1; n <= N; n++) {
+      const x = n % 2 === 0 ? 1 : 0, y = isPrime(n) ? 1 : 0;
+      c[x][y]++;
+      const dim = obs !== 'none' && +obs !== x;
+      tiles += `<div class="tile${x ? ' ev' : ''}${y ? ' pr' : ''}${dim ? ' dim' : ''}" title="${n}: ${x ? 'even' : 'odd'}, ${y ? 'prime' : 'not prime'}">${n}</div>`;
+    }
+    $('#ex-tiles').innerHTML = tiles;
+    const P = c.map(r => r.map(v => v / N)), inf = info2(P);
+    const rowN = [c[0][0] + c[0][1], c[1][0] + c[1][1]];
+    const cond = c.map((r, x) => r.map(v => rowN[x] ? v / rowN[x] : 0));
+    const Hrow = cond.map(r => H2(r));
+    const fr = (a, b) => `${a}/${b}`;
+    $('#ex-table').innerHTML = `<thead><tr><th></th><th>Y=0 not prime</th><th>Y=1 prime</th><th>p(x)</th></tr></thead><tbody>
+      ${[0, 1].map(x => `<tr${obs !== 'none' && +obs === x ? ' style="background:var(--mi-soft)"' : ''}><td>X=${x} ${x ? 'even' : 'odd'}</td>${[0, 1].map(y => `<td>${fr(c[x][y], N)}<br><span style="color:var(--muted)">p(y|x) = ${cond[x][y].toFixed(2)}</span></td>`).join('')}<td>${(rowN[x] / N).toFixed(2)}</td></tr>`).join('')}
+      </tbody><tfoot><tr><td>p(y)</td><td>${inf.py[0].toFixed(2)}</td><td>${inf.py[1].toFixed(2)}</td><td>1</td></tr></tfoot>`;
+    $('#ex-HY').innerHTML = bitsU(inf.Hy);
+    $('#ex-HYX').innerHTML = bitsU(inf.HygX);
+    $('#ex-I').innerHTML = bitsU(inf.I);
+    ibars($('#ex-bars'), [
+      { lab: 'H(Y)', segs: [{ from: 0, w: inf.I, cls: 'seg-m', text: 'I ' + f2(inf.I) }, { from: inf.I, w: inf.HygX, cls: 'seg-a', text: 'H(Y|X) ' + f2(inf.HygX) }] },
+      { lab: 'H(Y|odd)', segs: [{ from: 0, w: Hrow[0], cls: 'seg-a', text: f2(Hrow[0]) + ' · weight ' + (rowN[0] / N).toFixed(2) }] },
+      { lab: 'H(Y|even)', segs: [{ from: 0, w: Hrow[1], cls: 'seg-a', text: f2(Hrow[1]) + ' · weight ' + (rowN[1] / N).toFixed(2) }] }
+    ], 1);
+    const primes = []; for (let n = 1; n <= N; n++) if (isPrime(n)) primes.push(n);
+    const avg = `H(Y|X) = ${(rowN[0] / N).toFixed(3)}·${Hrow[0].toFixed(3)} + ${(rowN[1] / N).toFixed(3)}·${Hrow[1].toFixed(3)} = <b>${inf.HygX.toFixed(3)}</b> bits (the average over both things you might observe)`;
+    if (obs === 'none') $('#ex-obs-out').innerHTML = `Before looking: ${primes.length} of ${N} numbers are prime → p(Y=1) = ${inf.py[1].toFixed(3)} → H(Y) = <b>${inf.Hy.toFixed(3)}</b> bits<br>${avg}`;
+    else {
+      const x = +obs, set = []; for (let n = 1; n <= N; n++) if ((n % 2 === 0 ? 1 : 0) === x) set.push(n);
+      const show = set.length > 12 ? set.slice(0, 12).join(', ') + ', …' : set.join(', ');
+      $('#ex-obs-out').innerHTML = `Told X = ${x} (${x ? 'even' : 'odd'}): n ∈ {${show}} → p(prime | ${x ? 'even' : 'odd'}) = ${c[x][1]}/${rowN[x]} = ${cond[x][1].toFixed(3)} → H(Y|X=${x}) = <b>${Hrow[x].toFixed(3)}</b> bits ${Hrow[x] > inf.Hy + 1e-9 ? '<b style="color:var(--y)">(more uncertain than before!)</b>' : ''}<br>${avg}`;
+    }
+    $('#ex-note').innerHTML = N === 8
+      ? 'N = 8 is the book\'s example: H(Y) = 1, H(Y|X) = 0.81, I = 0.19 bits.'
+      : `Check 6.54: H(X|Y) + I + H(Y|X) = ${inf.HxgY.toFixed(3)} + ${inf.I.toFixed(3)} + ${inf.HygX.toFixed(3)} = ${(inf.HxgY + inf.I + inf.HygX).toFixed(3)} = H(X,Y) = ${inf.Hxy.toFixed(3)} ✓. ${N >= 20 ? 'For large N almost every prime is odd, but primes are rare, so knowing parity barely changes how unsure you are.' : ''}`;
+  }
+  NIn.addEventListener('input', render);
+  segBtns($('#ex-obs'), 'o', o => { obs = o; render(); });
+  render();
+})();
+
+/* ---------- §6.3.4 Conditional MI ---------- */
+(function () {
+  let st = 'cause';
+  const eIn = $('#cm-e');
+  const desc = {
+    cause: 'Z is a fair coin. X and Y are each a noisy copy of Z (flipped with probability ε). X and Y look related only because they share a cause; once Z is known, they are independent.',
+    redund: 'X is a fair coin. Y and Z are each a noisy copy of X. Z already tells you part of what Y would say about X, so Y adds less once Z is known.',
+    xor: 'X and Y are independent fair coins. Z = X ⊕ Y (1 when X ≠ Y), flipped with probability ε. Alone, Y says nothing about X. Given Z, Y tells you X.',
+    irr: 'Y is a noisy copy of X, and Z is an unrelated coin flip. Conditioning on Z changes nothing.'
+  };
+  function build(e) {
+    const f = (a, b) => a === b ? 1 - e : e;
+    const P = [[[0, 0], [0, 0]], [[0, 0], [0, 0]]];
+    for (let x = 0; x < 2; x++) for (let y = 0; y < 2; y++) for (let z = 0; z < 2; z++) {
+      P[x][y][z] = st === 'cause' ? .5 * f(z, x) * f(z, y)
+        : st === 'redund' ? .5 * f(x, y) * f(x, z)
+        : st === 'xor' ? .25 * f(x ^ y, z)
+        : .25 * f(x, y);
+    }
+    return P;
+  }
+  function Hm(P, keep) {
+    const m = {};
+    for (let x = 0; x < 2; x++) for (let y = 0; y < 2; y++) for (let z = 0; z < 2; z++) {
+      const v = [x, y, z], k = keep.map(a => v[a]).join();
+      m[k] = (m[k] || 0) + P[x][y][z];
+    }
+    return H2(Object.values(m));
+  }
+  function render() {
+    const e = +eIn.value;
+    $('#cm-e-o').textContent = e.toFixed(3);
+    $('#cm-desc').textContent = desc[st];
+    const P = build(e);
+    const pz = [0, 1].map(z => P[0][0][z] + P[0][1][z] + P[1][0][z] + P[1][1][z]);
+    const slices = [0, 1].map(z => [[P[0][0][z] / pz[z], P[0][1][z] / pz[z]], [P[1][0][z] / pz[z], P[1][1][z] / pz[z]]]);
+    const M = [[P[0][0][0] + P[0][0][1], P[0][1][0] + P[0][1][1]], [P[1][0][0] + P[1][0][1], P[1][1][0] + P[1][1][1]]];
+    const Is = slices.map(s => info2(s).I), Im = info2(M).I;
+    const opt = { rowLab: ['x=0', 'x=1'], colLab: ['y=0', 'y=1'], cs: 80, fill: v => ({ c: 'var(--x)', a: .05 + .6 * v }), label: v => v.toFixed(2) };
+    drawGrid($('#cm-s0'), slices[0], opt);
+    drawGrid($('#cm-s1'), slices[1], opt);
+    drawGrid($('#cm-sm'), M, opt);
+    $('#cm-cap0').innerHTML = `<b>p(x,y | Z=0)</b> · weight ${pz[0].toFixed(2)} · <b style="color:var(--green)">I = ${f2(Is[0])}</b>`;
+    $('#cm-cap1').innerHTML = `<b>p(x,y | Z=1)</b> · weight ${pz[1].toFixed(2)} · <b style="color:var(--green)">I = ${f2(Is[1])}</b>`;
+    $('#cm-capm').innerHTML = `<b>p(x,y)</b>, Z ignored · <b style="color:var(--mi)">I = ${f2(Im)}</b>`;
+    const H = k => Hm(P, k);
+    const IXY = H([0]) + H([1]) - H([0, 1]);
+    const IXYgZ = H([0, 2]) + H([1, 2]) - H([2]) - H([0, 1, 2]);
+    const IXZ = H([0]) + H([2]) - H([0, 2]);
+    const IXZgY = H([0, 1]) + H([1, 2]) - H([1]) - H([0, 1, 2]);
+    const IXYZ = H([0]) + H([1, 2]) - H([0, 1, 2]);
+    $('#cm-avg').innerHTML = `I(X;Y|Z) = Σ<sub>z</sub> p(z)·I(X;Y | Z=z) = ${pz[0].toFixed(2)}×${f2(Is[0], 3)} + ${pz[1].toFixed(2)}×${f2(Is[1], 3)} = <b style="color:var(--green)">${f2(IXYgZ, 3)}</b> bits &nbsp; vs. &nbsp; I(X;Y) = <b style="color:var(--mi)">${f2(IXY, 3)}</b> bits → conditioning on Z ${IXYgZ > IXY + 1e-4 ? '<b>increased</b>' : IXYgZ < IXY - 1e-4 ? '<b>decreased</b>' : 'did not change'} the dependence`;
+    $('#cm-I').innerHTML = bitsU(IXY);
+    $('#cm-IZ').innerHTML = bitsU(IXYgZ);
+    $('#cm-IXZ').innerHTML = bitsU(IXZ);
+    $('#cm-IYZ').innerHTML = bitsU(IXYZ);
+    ibars($('#cm-bars'), [
+      { lab: 'Z then Y', segs: [{ from: 0, w: IXZ, cls: 'seg-x', text: 'I(X;Z) ' + f2(IXZ) }, { from: IXZ, w: IXYgZ, cls: 'seg-g', text: 'I(X;Y|Z) ' + f2(IXYgZ) }] },
+      { lab: 'Y then Z', segs: [{ from: 0, w: IXY, cls: 'seg-m', text: 'I(X;Y) ' + f2(IXY) }, { from: IXY, w: IXZgY, cls: 'seg-a', text: 'I(X;Z|Y) ' + f2(IXZgY) }] }
+    ], 1);
+  }
+  segBtns($('#cm-struct'), 's', s => { st = s; render(); });
+  eIn.addEventListener('input', render);
+  render();
+})();
+
+/* ---------- §6.3.5 Gaussian MI & binning ---------- */
+(function () {
+  const NMAX = 5000, NS = [100, 250, 500, 1000, 2500, 5000];
+  let seed = 11, base, shape = 'gauss', showBins = true;
+  const rhoIn = $('#gs-rho'), noiseIn = $('#gs-noise'), binIn = $('#gs-bins'), nIn = $('#gs-n');
+  function gen() {
+    const r = mulberry32(seed);
+    base = { z1: [], z2: [], u: [], s: [] };
+    for (let i = 0; i < NMAX; i++) { base.z1.push(randn(r)); base.z2.push(randn(r)); base.u.push(r()); base.s.push(r() < .5 ? -1 : 1); }
+  }
+  function sample(n, rho, sig) {
+    const xs = new Float64Array(n), ys = new Float64Array(n), { z1, z2, u, s } = base;
+    for (let i = 0; i < n; i++) {
+      let x, y;
+      if (shape === 'gauss') { x = z1[i]; y = rho * z1[i] + Math.sqrt(1 - rho * rho) * z2[i]; }
+      else if (shape === 'parab') { x = 2 * u[i] - 1; y = x * x + sig * .4 * z2[i]; }
+      else if (shape === 'circle') { const t = 2 * Math.PI * u[i]; x = Math.cos(t) + sig * .3 * z1[i]; y = Math.sin(t) + sig * .3 * z2[i]; }
+      else if (shape === 'sine') { x = 2 * u[i] - 1; y = Math.sin(2 * Math.PI * x) + sig * .5 * z2[i]; }
+      else if (shape === 'cross') { x = 2 * u[i] - 1; y = s[i] * x + sig * .3 * z2[i]; }
+      else { x = z1[i]; y = z2[i]; }
+      xs[i] = x; ys[i] = y;
+    }
+    return { xs, ys };
+  }
+  function range(a) { let lo = Infinity, hi = -Infinity; for (const v of a) { if (v < lo) lo = v; if (v > hi) hi = v; } if (hi - lo < 1e-9) hi = lo + 1; return [lo, hi]; }
+  function binned(xs, ys, B, rx, ry) {
+    const n = xs.length, cnt = new Float64Array(B * B);
+    const kx = B / (rx[1] - rx[0]), ky = B / (ry[1] - ry[0]);
+    for (let i = 0; i < n; i++) {
+      const a = Math.min(B - 1, Math.floor((xs[i] - rx[0]) * kx)), b = Math.min(B - 1, Math.floor((ys[i] - ry[0]) * ky));
+      cnt[a * B + b]++;
+    }
+    const P = []; for (let a = 0; a < B; a++) { const row = []; for (let b = 0; b < B; b++) row.push(cnt[a * B + b] / n); P.push(row); }
+    return { I: info2(P).I, cnt };
+  }
+  function pearson(xs, ys) {
+    const n = xs.length; let mx = 0, my = 0; for (let i = 0; i < n; i++) { mx += xs[i]; my += ys[i]; } mx /= n; my /= n;
+    let sxy = 0, sxx = 0, syy = 0; for (let i = 0; i < n; i++) { const a = xs[i] - mx, b = ys[i] - my; sxy += a * b; sxx += a * a; syy += b * b; }
+    return sxy / Math.sqrt(sxx * syy);
+  }
+  const Ig = r => r * r >= 1 ? Infinity : -0.5 * log2(1 - r * r);
+  function render() {
+    const rho = +rhoIn.value, sig = +noiseIn.value, B = +binIn.value, n = NS[+nIn.value];
+    $('#gs-rho-o').textContent = rho.toFixed(2); $('#gs-noise-o').textContent = sig.toFixed(2);
+    $('#gs-bins-o').textContent = B; $('#gs-n-o').textContent = n;
+    $('#gs-rho-row').style.display = shape === 'gauss' ? '' : 'none';
+    $('#gs-noise-row').style.display = (shape === 'gauss' || shape === 'indep') ? 'none' : '';
+    const { xs, ys } = sample(n, rho, sig), rx = range(xs), ry = range(ys);
+    const est = binned(xs, ys, B, rx, ry), r = pearson(xs, ys);
+    const truth = shape === 'gauss' ? Ig(rho) : shape === 'indep' ? 0 : null;
+    // scatter
+    const svg = $('#gs-scatter'), W = 360, Hh = 360, pd = 24;
+    svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`);
+    const sx = scale(rx[0], rx[1], pd, W - 6), sy = scale(ry[0], ry[1], Hh - pd, 6);
+    let s = `<rect x="${pd}" y="6" width="${W - 6 - pd}" height="${Hh - pd - 6}" style="fill:var(--sunk)"/>`;
+    if (showBins) {
+      let mc = 0; for (const c of est.cnt) if (c > mc) mc = c;
+      const cw = (W - 6 - pd) / B, ch = (Hh - pd - 6) / B;
+      for (let a = 0; a < B; a++) for (let b = 0; b < B; b++) {
+        const c = est.cnt[a * B + b]; if (!c) continue;
+        s += `<rect x="${(pd + a * cw).toFixed(1)}" y="${(Hh - pd - (b + 1) * ch).toFixed(1)}" width="${cw.toFixed(1)}" height="${ch.toFixed(1)}" style="fill:var(--mi);fill-opacity:${(.08 + .55 * c / mc).toFixed(3)}"/>`;
+      }
+      for (let k = 1; k < B; k++) {
+        s += `<line x1="${(pd + k * cw).toFixed(1)}" x2="${(pd + k * cw).toFixed(1)}" y1="6" y2="${Hh - pd}" style="stroke:var(--surface);stroke-width:${B > 25 ? .6 : 1}"/>`;
+        s += `<line y1="${(Hh - pd - k * ch).toFixed(1)}" y2="${(Hh - pd - k * ch).toFixed(1)}" x1="${pd}" x2="${W - 6}" style="stroke:var(--surface);stroke-width:${B > 25 ? .6 : 1}"/>`;
+      }
+    }
+    const ps = n >= 2500 ? 1.5 : n >= 1000 ? 2 : 2.8;
+    let d = ''; for (let i = 0; i < n; i++) d += `M${(sx(xs[i]) - ps / 2).toFixed(1)},${(sy(ys[i]) - ps / 2).toFixed(1)}h${ps}v${ps}h-${ps}z`;
+    s += `<path d="${d}" style="fill:var(--ink);opacity:${n >= 2500 ? .45 : .7}"/>`;
+    s += `<text class="ax" x="${(pd + W) / 2}" y="${Hh - 6}" text-anchor="middle">x</text><text class="ax" x="8" y="${Hh / 2}" text-anchor="middle">y</text>`;
+    svg.innerHTML = s;
+    // readouts
+    $('#gs-r').innerHTML = unit(r.toFixed(2), '');
+    $('#gs-true-k').textContent = shape === 'gauss' ? 'true I = −½log₂(1−ρ²)' : shape === 'indep' ? 'true I' : '−½log₂(1−r²) "if Gaussian"';
+    $('#gs-true').innerHTML = bitsU(truth !== null ? truth : Ig(r));
+    $('#gs-hat').innerHTML = bitsU(est.I);
+    // I(rho) curve
+    const cv = $('#gs-curve'), CW = 360, CH = 170, cp = { l: 34, r: 22, t: 8, b: 26 };
+    cv.setAttribute('viewBox', `0 0 ${CW} ${CH}`);
+    const cx = scale(-1, 1, cp.l, CW - cp.r), cy = scale(0, 4, CH - cp.b, cp.t);
+    const rs = [], is = []; for (let k = 0; k <= 400; k++) { const q = -0.9995 + 1.999 * k / 400; rs.push(q); is.push(Math.min(4.2, Ig(q))); }
+    let c = '';
+    for (const t of [0, 1, 2, 3, 4]) c += `<line class="grid" x1="${cp.l}" x2="${CW - cp.r}" y1="${cy(t)}" y2="${cy(t)}"/><text class="ax" x="${cp.l - 6}" y="${cy(t) + 4}" text-anchor="end">${t}</text>`;
+    for (const t of [-1, -0.5, 0, 0.5, 1]) c += `<text class="ax" x="${cx(t)}" y="${CH - cp.b + 15}" text-anchor="middle">${t}</text>`;
+    c += `<text class="ax" x="${CW - 2}" y="${CH - cp.b + 15}" text-anchor="end" style="font-style:italic">ρ</text>`;
+    c += `<clipPath id="gs-clip"><rect x="${cp.l}" y="${cp.t}" width="${CW - cp.l - cp.r}" height="${CH - cp.t - cp.b}"/></clipPath>`;
+    c += `<path clip-path="url(#gs-clip)" d="${pathFrom(rs, is, cx, cy)}" style="fill:none;stroke:var(--x);stroke-width:2.5"/>`;
+    if (shape === 'gauss') {
+      const iv = Math.min(4, Ig(rho));
+      c += `<line x1="${cx(rho)}" x2="${cx(rho)}" y1="${cy(0)}" y2="${cy(iv)}" style="stroke:var(--x);stroke-dasharray:3 3"/><circle cx="${cx(rho)}" cy="${cy(iv)}" r="6" style="fill:var(--x);stroke:var(--surface);stroke-width:2"/>`;
+      c += `<circle cx="${cx(r)}" cy="${cy(Math.min(4, est.I))}" r="5" style="fill:var(--mi);stroke:var(--surface);stroke-width:2"/><text class="ax" x="${cx(r) + (r > 0.5 ? -9 : 9)}" y="${cy(Math.min(4, est.I)) - 8}" text-anchor="${r > 0.5 ? 'end' : 'start'}" style="fill:var(--mi)">Î</text>`;
+    } else {
+      const iv = Math.min(4, Ig(r));
+      c += `<circle cx="${cx(r)}" cy="${cy(iv)}" r="5" style="fill:var(--surface);stroke:var(--x);stroke-width:2"/>`;
+      c += `<line x1="${cp.l}" x2="${CW - cp.r}" y1="${cy(Math.min(4, est.I))}" y2="${cy(Math.min(4, est.I))}" style="stroke:var(--mi);stroke-width:2;stroke-dasharray:5 4"/><text class="ax" x="${CW - cp.r}" y="${cy(Math.min(4, est.I)) - 5}" text-anchor="end" style="fill:var(--mi)">binned Î</text>`;
+    }
+    cv.innerHTML = c;
+    // bins sweep
+    const sw = $('#gs-sweep'), SW = 360, SH = 150, sp = { l: 34, r: 8, t: 8, b: 26 };
+    sw.setAttribute('viewBox', `0 0 ${SW} ${SH}`);
+    const Bs = [], Is = []; for (let b = 2; b <= 40; b++) { Bs.push(b); Is.push(binned(xs, ys, b, rx, ry).I); }
+    const ymax = Math.max(0.5, ...Is, truth !== null && Number.isFinite(truth) ? truth : 0) * 1.12;
+    const bx = scale(2, 40, sp.l, SW - sp.r), by = scale(0, ymax, SH - sp.b, sp.t);
+    let w = '';
+    const step = ymax > 3 ? 1 : ymax > 1.5 ? 0.5 : 0.25;
+    for (let t = 0; t <= ymax + 1e-9; t += step) w += `<line class="grid" x1="${sp.l}" x2="${SW - sp.r}" y1="${by(t)}" y2="${by(t)}"/><text class="ax" x="${sp.l - 6}" y="${by(t) + 4}" text-anchor="end">${+t.toFixed(2)}</text>`;
+    for (const t of [2, 10, 20, 30, 40]) w += `<text class="ax" x="${bx(t)}" y="${SH - sp.b + 15}" text-anchor="middle">${t}</text>`;
+    if (truth !== null && Number.isFinite(truth)) w += `<line x1="${sp.l}" x2="${SW - sp.r}" y1="${by(truth)}" y2="${by(truth)}" style="stroke:var(--x);stroke-width:2;stroke-dasharray:5 4"/><text class="ax" x="${sp.l + 4}" y="${by(truth) - 5}" style="fill:var(--x)">true I</text>`;
+    w += `<path d="${pathFrom(Bs, Is, bx, by)}" style="fill:none;stroke:var(--mi);stroke-width:2.2"/>`;
+    w += `<circle cx="${bx(B)}" cy="${by(est.I)}" r="5" style="fill:var(--mi);stroke:var(--surface);stroke-width:2"/>`;
+    sw.innerHTML = w;
+    // message
+    const perCell = n / (B * B);
+    let msg;
+    if (shape === 'gauss') {
+      msg = `Gaussian with ρ = ${rho.toFixed(2)}: the formula gives ${f2(truth)} bits; ${B} × ${B} bins on ${n} points estimate ${f2(est.I)}. `;
+      msg += perCell < 3 ? `That's only ${perCell.toFixed(1)} points per cell on average, so sampling noise in the counts looks like structure and Î is biased upward. Fewer bins or more samples brings it back.` : Math.abs(rho) > 0.9 && B < 10 ? 'Coarse bins blur a very tight relationship, so Î underestimates. Add bins to resolve the thin ridge.' : 'Try pushing the bins slider all the way right, then shrink n.';
+    } else if (shape === 'indep') {
+      msg = `X and Y are independent, so the true MI is exactly 0. The binned estimate is ${f2(est.I)} bits${est.I > 0.05 ? ': every bit of that is estimation bias from finite samples' : ''}. Bias grows with bins² / n.`;
+    } else {
+      msg = `Correlation r = ${r.toFixed(2)} ${Math.abs(r) < 0.15 ? 'says these variables are basically unrelated' : 'only captures the straight-line part'}, but the binned MI estimate is ${f2(est.I)} bits: Y clearly depends on X, just not linearly. MI catches any kind of dependence; ρ only catches linear dependence.`;
+    }
+    $('#gs-msg').textContent = msg;
+  }
+  segBtns($('#gs-shape'), 'sh', s => { shape = s; render(); });
+  [rhoIn, noiseIn, binIn, nIn].forEach(el => el.addEventListener('input', render));
+  $('#gs-resample').addEventListener('click', () => { seed++; gen(); render(); });
+  $('#gs-showbins').addEventListener('click', e => { showBins = !showBins; e.target.textContent = showBins ? 'Hide bins' : 'Show bins'; render(); });
+  gen(); render();
+})();
+
+/* ---------- §6.3.8 DPI ---------- */
+(function () {
+  const L = 40, KMAX = 8;
+  let seed = 5, X, U;
+  const eIn = $('#dp-e'), kIn = $('#dp-k');
+  function gen() {
+    const r = mulberry32(seed);
+    X = Array.from({ length: L }, () => r() < .5 ? 1 : 0);
+    U = Array.from({ length: KMAX }, () => Array.from({ length: L }, r));
+  }
+  function render() {
+    const e = +eIn.value, K = +kIn.value;
+    $('#dp-e-o').textContent = e.toFixed(3); $('#dp-k-o').textContent = K;
+    const row = (name, b, I, match) => `<div class="brow"><div class="nm">${name}</div><div class="bits">${b.map((v, i) => `<i class="${v ? 'one' : ''}${v !== X[i] ? ' bad' : ''}"></i>`).join('')}</div><div class="mibw"><div class="mib"><div style="width:${(I * 100).toFixed(1)}%"></div></div><span class="mibt">${f2(I)} bits${match !== null ? ' · ' + match + '/' + L + ' match' : ''}</span></div></div>`;
+    let h = row('X', X, 1, null), prev = X;
+    for (let k = 1; k <= K; k++) {
+      const cur = prev.map((v, i) => U[k - 1][i] < e ? 1 - v : v);
+      const ek = 0.5 * (1 - Math.pow(1 - 2 * e, k));
+      h += `<div class="arrowline">↓ flip each bit w.p. ${e.toFixed(3)}${k > 1 ? ` · total flip prob. so far ε<sub>${k}</sub> = ${ek.toFixed(3)}` : ''}</div>`;
+      h += row(`Y<sub>${k}</sub>`, cur, 1 - Hb(ek), cur.filter((v, i) => v === X[i]).length);
+      prev = cur;
+    }
+    $('#dp-rows').innerHTML = h;
+  }
+  [eIn, kIn].forEach(el => el.addEventListener('input', render));
+  $('#dp-new').addEventListener('click', () => { seed++; gen(); render(); });
+  gen(); render();
+})();
+
+(function () {
+  let fn = 'maj';
+  const eIn = $('#dp3-e');
+  const pc = y => (y & 1) + (y >> 1 & 1) + (y >> 2 & 1);
+  const bitsOf = y => `${y >> 2 & 1}${y >> 1 & 1}${y & 1}`;
+  const F = {
+    maj: { f: y => pc(y) >= 2 ? 1 : 0, show: z => String(z), msg: 'Majority vote throws away how lopsided the vote was: 000 (very sure) and 001 (less sure) both become 0. Its best guess is just as accurate as using all of Y, but it carries less information.' },
+    sum: { f: y => pc(y), show: z => String(z), msg: 'Patterns with the same number of 1s have the same likelihood ratio, so merging them loses nothing: I(X;Z) = I(X;Y). The count is a sufficient statistic, which is §6.3.9.' },
+    first: { f: y => y >> 2 & 1, show: z => String(z), msg: 'Ignoring two of the three copies throws away most of the evidence.' },
+    par: { f: y => pc(y) % 2, show: z => String(z), msg: 'Parity mixes up "three agreeing copies" with "one copy", so it keeps only a little information.' },
+    agree: { f: y => (y === 0 || y === 7) ? 1 : 0, show: z => z ? 'yes' : 'no', msg: '"Do all copies agree?" tells you how reliable the reading was, not what X is, so I(X;Z) = 0.' }
+  };
+  segBtns($('#dp3-f'), 'f', f => { fn = f; render(); });
+  function render() {
+    const e = +eIn.value;
+    $('#dp3-e-o').textContent = e.toFixed(3);
+    const g = fn === 'sorted' ? { f: y => pc(y), show: z => '0'.repeat(3 - z) + '1'.repeat(z), msg: 'Sorting the copies (e.g. 101 → 011) forgets the order but keeps the count, which is exactly what matters. Same information as "count of 1s": I(X;Z) = I(X;Y).' } : F[fn];
+    const pyx = (y, x) => { const d = pc(y ^ (x ? 7 : 0)); return Math.pow(e, d) * Math.pow(1 - e, 3 - d); };
+    const PY = [0, 1].map(x => Array.from({ length: 8 }, (_, y) => .5 * pyx(y, x)));
+    const zs = [...new Set(Array.from({ length: 8 }, (_, y) => g.f(y)))].sort((a, b) => a - b);
+    const PZ = [0, 1].map(x => zs.map(z => sum(Array.from({ length: 8 }, (_, y) => g.f(y) === z ? PY[x][y] : 0))));
+    const IY = info2(PY).I, IZ = info2(PZ).I;
+    const acc = P => sum(P[0].map((v, j) => Math.max(v, P[1][j])));
+    $('#dp3-accY').innerHTML = unit((acc(PY) * 100).toFixed(1), '%');
+    $('#dp3-accZ').innerHTML = unit((acc(PZ) * 100).toFixed(1), '%');
+    const order = Array.from({ length: 8 }, (_, y) => y).sort((a, b) => zs.indexOf(g.f(a)) - zs.indexOf(g.f(b)) || a - b);
+    const ratio = y => { const a = pyx(y, 1), b = pyx(y, 0); return b < 1e-12 ? (a < 1e-12 ? '—' : '∞') : (a / b < 0.01 || a / b > 999 ? (a / b).toExponential(1) : (a / b).toFixed(2)); };
+    $('#dp3-table').innerHTML = `<thead><tr><th>Y pattern</th><th>p(y|X=0)</th><th>p(y|X=1)</th><th>ratio p(y|1)/p(y|0)</th><th>Z = f(Y)</th></tr></thead><tbody>${order.map(y => `<tr class="g${zs.indexOf(g.f(y)) % 4}"><td>${bitsOf(y)}</td><td>${pyx(y, 0).toFixed(3)}</td><td>${pyx(y, 1).toFixed(3)}</td><td>${ratio(y)}</td><td class="z">${g.show(g.f(y))}</td></tr>`).join('')}</tbody>`;
+    ibars($('#dp3-bars'), [
+      { lab: 'I(X;Y)', segs: [{ from: 0, w: IY, cls: 'seg-m', text: f2(IY, 3) + ' bits' }] },
+      { lab: 'I(X;Z)', segs: [{ from: 0, w: IZ, cls: 'seg-x', text: f2(IZ, 3) + ' bits' }, { from: IZ, w: IY - IZ, cls: 'seg-a', text: 'lost ' + f2(IY - IZ, 3) }] }
+    ], 1);
+    $('#dp3-msg').innerHTML = `${g.msg} <br><span style="font-family:var(--mono);font-size:12.5px">I(X;Y) = ${f2(IY, 3)} ≥ I(X;Z) = ${f2(IZ, 3)}; the gap is I(X;Y|Z) = ${f2(IY - IZ, 3)} bits.</span>`;
+  }
+  eIn.addEventListener('input', render);
+  render();
+})();
+
+/* ---------- §6.3.9 Sufficient statistics ---------- */
+(function () {
+  const G = 400, TH = Array.from({ length: G }, (_, i) => (i + .5) / G);
+  const NMAX = 20;
+  const lf = [0]; for (let k = 1; k <= NMAX; k++) lf.push(lf[k - 1] + Math.log(k));
+  const lC = (n, k) => lf[n] - lf[k] - lf[n - k];
+  const binom = (m, t) => Array.from({ length: m + 1 }, (_, k) => Math.exp(lC(m, k) + k * Math.log(t) + (m - k) * Math.log(1 - t)));
+  let seed = 3, U, seq, sel = 'N1';
+  const NIn = $('#sf-N'), thIn = $('#sf-th');
+  function gen() { const r = mulberry32(seed); U = Array.from({ length: NMAX }, r); regen(); }
+  function regen() { const t = +thIn.value; seq = U.map(u => u < t ? 1 : 0); }
+  // each statistic: cond(N, θ) → distribution over its values; obs(seq, N) → observed value; uses(N) → which flips it looks at
+  const STATS = [
+    { id: 'D', name: 'D: the whole sequence' },
+    { id: 'N1', name: 'N₁: number of heads', cond: (N, t) => binom(N, t), obs: (s, N) => s.slice(0, N).reduce((a, b) => a + b, 0), show: v => `N₁ = ${v}` },
+    { id: 'half', name: 'heads in first half', cond: (N, t) => binom(Math.ceil(N / 2), t), obs: (s, N) => s.slice(0, Math.ceil(N / 2)).reduce((a, b) => a + b, 0), show: (v, N) => `${v} heads in the first ${Math.ceil(N / 2)}`, uses: N => Math.ceil(N / 2) },
+    { id: 'first', name: 'first flip only', cond: (N, t) => [1 - t, t], obs: s => s[0], show: v => `first flip = ${v ? 'H' : 'T'}`, uses: () => 1 },
+    { id: 'maj', name: 'majority: N₁ > N/2?', cond: (N, t) => { const b = binom(N, t); let p = 0; b.forEach((v, k) => { if (k > N / 2) p += v; }); return [1 - p, p]; }, obs: (s, N) => s.slice(0, N).reduce((a, b) => a + b, 0) > N / 2 ? 1 : 0, show: v => v ? 'more heads than tails' : 'not more heads than tails' },
+    { id: 'par', name: 'parity: is N₁ odd?', cond: (N, t) => { const b = binom(N, t); let p = 0; b.forEach((v, k) => { if (k % 2) p += v; }); return [1 - p, p]; }, obs: (s, N) => s.slice(0, N).reduce((a, b) => a + b, 0) % 2, show: v => v ? 'N₁ is odd' : 'N₁ is even' }
+  ];
+  function mutualInfo(N, st) {
+    if (st.id === 'D') {
+      let HD = 0;
+      for (let k = 0; k <= N; k++) {
+        const m = sum(TH.map(t => Math.exp(k * Math.log(t) + (N - k) * Math.log(1 - t)))) / G;
+        HD -= Math.exp(lC(N, k)) * m * log2(m);
+      }
+      return HD - N * sum(TH.map(Hb)) / G;
+    }
+    const conds = TH.map(t => st.cond(N, t));
+    const mix = conds[0].map((_, j) => sum(conds.map(c => c[j])) / G);
+    return H2(mix) - sum(conds.map(H2)) / G;
+  }
+  function render() {
+    const N = +NIn.value;
+    $('#sf-N-o').textContent = N; $('#sf-th-o').textContent = (+thIn.value).toFixed(2);
+    const st = STATS.find(s => s.id === sel);
+    const used = st.uses ? st.uses(N) : N;
+    $('#sf-coins').innerHTML = seq.slice(0, N).map((v, i) => `<button class="coin${v ? ' h' : ''}${st.uses && i < used ? ' inS' : ''}" data-i="${i}" aria-label="flip ${i + 1}: ${v ? 'heads' : 'tails'}">${v ? 'H' : 'T'}</button>`).join('');
+    const k = seq.slice(0, N).reduce((a, b) => a + b, 0);
+    // mutual informations
+    const Is = STATS.map(s => mutualInfo(N, s)), ID = Is[0];
+    $('#sf-stats').innerHTML = STATS.map((s, i) => {
+      const full = Math.abs(Is[i] - ID) < 1e-6;
+      return `<button class="statbtn${s.id === sel ? ' on' : ''}" data-s="${s.id}"><span>${s.name} ${full ? '<span class="tick">✓ sufficient</span>' : ''}</span><span class="sb"><div class="${full ? 'full' : ''}" style="width:${(Is[i] / ID * 100).toFixed(1)}%"></div></span><span class="sv">${Is[i].toFixed(3)}</span></button>`;
+    }).join('');
+    // posteriors
+    const postD = TH.map(t => Math.exp(k * Math.log(t) + (N - k) * Math.log(1 - t)));
+    const postS = st.id === 'D' ? postD.slice() : TH.map(t => st.cond(N, t)[st.obs(seq, N)]);
+    const nz = a => { const z = sum(a) / G; return a.map(v => v / z); };
+    const pD = nz(postD), pS = nz(postS);
+    const svg = $('#sf-post'), W = 420, Hh = 190, pd = { l: 12, r: 22, t: 10, b: 26 };
+    svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`);
+    const ymax = Math.max(...pD, ...pS) * 1.1;
+    const sx = scale(0, 1, pd.l, W - pd.r), sy = scale(0, ymax, Hh - pd.b, pd.t);
+    let s = '';
+    for (const t of [0, .25, .5, .75, 1]) s += `<line class="grid" x1="${sx(t)}" x2="${sx(t)}" y1="${pd.t}" y2="${Hh - pd.b}"/><text class="ax" x="${sx(t)}" y="${Hh - pd.b + 15}" text-anchor="middle">${t}</text>`;
+    s += `<text class="ax" x="${W - 2}" y="${Hh - pd.b + 15}" text-anchor="end" style="font-style:italic">θ</text>`;
+    s += `<line class="base" x1="${pd.l}" x2="${W - pd.r}" y1="${sy(0)}" y2="${sy(0)}"/>`;
+    s += `<path d="${pathFrom(TH, pD, sx, sy)}L${sx(TH[G - 1])},${sy(0)}L${sx(TH[0])},${sy(0)}Z" style="fill:var(--x-soft)"/>`;
+    s += `<path d="${pathFrom(TH, pD, sx, sy)}" style="fill:none;stroke:var(--x);stroke-width:2.5"/>`;
+    s += `<path d="${pathFrom(TH, pS, sx, sy)}" style="fill:none;stroke:var(--mi);stroke-width:2.5;stroke-dasharray:7 5"/>`;
+    const tt = +thIn.value;
+    s += `<line x1="${sx(tt)}" x2="${sx(tt)}" y1="${pd.t}" y2="${Hh - pd.b}" style="stroke:var(--amber);stroke-width:1.5;stroke-dasharray:2 3"/><text class="ax" x="${sx(tt) + 4}" y="${pd.t + 10}" style="fill:var(--amber)">θ used to generate</text>`;
+    svg.innerHTML = s;
+    $('#sf-postcap').innerHTML = `Posterior over θ: <b style="color:var(--x)">p(θ | D)</b> vs <b style="color:var(--mi)">p(θ | s(D))</b>`;
+    const iS = Is[STATS.indexOf(st)], suff = Math.abs(iS - ID) < 1e-6;
+    const sv = st.id === 'D' ? `D = ${seq.slice(0, N).map(v => v ? 'H' : 'T').join('')}` : st.show(st.obs(seq, N), N);
+    const why = {
+      D: 'Trivially sufficient, but it doesn\'t compress anything.',
+      N1: 'The likelihood θ^N₁(1−θ)^(N−N₁) depends on the data only through N₁, so the two posteriors are identical for <i>every</i> dataset. Minimal sufficient.',
+      half: 'Ignores half the flips, so the posterior is wider than it needs to be.',
+      first: N === 1 ? 'With N = 1 the first flip <i>is</i> the whole dataset, so it\'s sufficient here. Raise N to see that change.' : 'One flip says very little about θ.',
+      maj: 'Keeps only which side won, not by how much.',
+      par: 'Odd/even is almost unrelated to θ, so it keeps very little information.'
+    }[st.id];
+    $('#sf-out').innerHTML = `Your data: N = ${N}, N₁ = ${k}. Statistic: <b>${sv}</b><br>I(θ; s(D)) = <b style="color:${suff ? 'var(--green)' : 'var(--mi)'}">${iS.toFixed(3)}</b> of I(θ; D) = ${ID.toFixed(3)} bits (${(iS / ID * 100).toFixed(1)}%) ${suff ? '→ <b style="color:var(--green)">sufficient</b>' : '→ loses information'}<br><span style="font-family:var(--body);font-size:15px">${why}</span>`;
+  }
+  $('#sf-stats').addEventListener('click', e => { const b = e.target.closest('.statbtn'); if (b) { sel = b.dataset.s; render(); } });
+  $('#sf-coins').addEventListener('click', e => { const b = e.target.closest('.coin'); if (b) { const i = +b.dataset.i; seq[i] = 1 - seq[i]; render(); const nb = $(`#sf-coins .coin[data-i="${i}"]`); nb && nb.focus(); } });
+  NIn.addEventListener('input', render);
+  thIn.addEventListener('input', () => { regen(); render(); });
+  $('#sf-new').addEventListener('click', () => { seed++; gen(); render(); });
+  $('#sf-shuf').addEventListener('click', () => {
+    const N = +NIn.value, r = mulberry32(Date.now() & 0xffff), a = seq.slice(0, N);
+    for (let i = N - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    seq = a.concat(seq.slice(N)); render();
+  });
+  gen(); render();
+})();
+
+/* ---------- Quizzes ---------- */
+const QUIZ = {
+  def: [
+    { q: 'Mutual information I(X;Y) is defined as the KL divergence between…', o: ['p(x) and p(y)', 'p(x,y) and p(x)p(y)', 'p(x|y) and p(y|x)', 'p(x)p(y) and the uniform distribution'], a: 1, w: 'Eq. 6.47: the true joint versus the "independent" model built from the marginals. MI is the information gained by modeling the real joint instead of pretending X and Y are independent.' },
+    { q: 'When is I(X;Y) exactly 0?', o: ['When X and Y have the same distribution', 'When X and Y are independent', 'When H(X) = H(Y)', 'When one of them is uniform'], a: 1, w: 'KL is 0 iff its two arguments are equal, so I = 0 iff p(x,y) = p(x)p(y) for every pair. That is the definition of independence.' },
+    { q: 'Some cells in the contribution grid are negative. Can I(X;Y) itself be negative?', o: ['Yes, when anti-correlated', 'Yes, when most cells are amber', 'No, it is a KL divergence, which is always ≥ 0', 'Only for continuous variables'], a: 2, w: 'Individual terms p·log(p/q) can be negative, but the weighted sum is a KL divergence and Gibbs\' inequality makes it ≥ 0. This holds for continuous variables too.' },
+    { q: 'X is uniform over 3 values and Y = X. What is I(X;Y)?', o: ['0 bits', '1 bit', 'log₂3 ≈ 1.58 bits', '3 bits'], a: 2, w: 'Three diagonal cells, each 1/3 vs a product of 1/9: 3 × (1/3)·log₂3 = log₂3. Seeing Y gives you all of X\'s entropy.' },
+    { q: 'A cell has p(x,y) = 0.2 while p(x)p(y) = 0.1. Its term in the MI sum is…', o: ['+0.2 bits', '+0.1 bits', '−0.2 bits', '+1 bit'], a: 0, w: '0.2 · log₂(0.2/0.1) = 0.2 · 1 = 0.2 bits. The pair happens twice as often as chance, which is worth 1 bit, weighted by how often it happens.' },
+    { q: 'Why does the book write I(X;Y) with a semicolon?', o: ['To show MI is not symmetric', 'So arguments can be sets, e.g. I(X; Y, Z)', 'Because semicolons mean conditioning', 'It is just a typo convention'], a: 1, w: 'A comma groups variables together. I(X; Y,Z) is the information between X and the pair (Y, Z). MI itself is symmetric.' }
+  ],
+  interp: [
+    { q: 'I(X;Y) = H(X) − H(X|Y) means MI is…', o: ['the uncertainty in X that Y can\'t explain', 'the reduction in uncertainty about X from observing Y', 'the total uncertainty of the pair', 'the entropy of Y'], a: 1, w: 'H(X) is uncertainty before looking at Y, H(X|Y) is the average left after. The difference is how much Y tells you about X.' },
+    { q: 'H(X) = 1, H(Y) = 1, H(X,Y) = 1.5 bits. What is I(X;Y)?', o: ['0.5 bits', '1.5 bits', '2.5 bits', '0 bits'], a: 0, w: 'Eq. 6.51: 1 + 1 − 1.5 = 0.5. The two circles together cover only 1.5 bits, so 0.5 bits must be counted in both.' },
+    { q: 'Which inequality follows directly from I ≥ 0 and Eq. 6.49?', o: ['H(X,Y) ≥ H(X) + H(Y)', 'H(X|Y) ≤ H(X)', 'H(X) ≤ H(Y)', 'I(X;Y) ≤ 1'], a: 1, w: '0 ≤ I = H(X) − H(X|Y) rearranges to H(X|Y) ≤ H(X). Conditioning reduces entropy on average.' },
+    { q: 'In the information diagram, H(X,Y) corresponds to…', o: ['the overlap', 'the left crescent', 'the union of both circles', 'the right circle'], a: 2, w: 'The joint entropy is everything: H(X|Y) + I + H(Y|X), the full middle bar in Play.' },
+    { q: 'If H(X|Y) = 0, then…', o: ['X and Y are independent', 'X is a deterministic function of Y, and I(X;Y) = H(X)', 'Y is a deterministic function of X', 'I(X;Y) = 0'], a: 1, w: 'No uncertainty about X is left once you see Y, so Y determines X. The X circle sits entirely inside the Y circle, and the overlap is all of H(X).' },
+    { q: 'Is I(X;Y) = I(Y;X)?', o: ['Yes, always', 'Only if H(X) = H(Y)', 'Only for independent variables', 'No, MI is asymmetric like KL'], a: 0, w: 'Eq. 6.51 is symmetric in X and Y. Even though KL is asymmetric in general, MI compares p(x,y) with p(x)p(y), and neither depends on which variable you call "first".' }
+  ],
+  example: [
+    { q: 'For n uniform on 1–8, why is H(X) = H(Y) = 1 bit?', o: ['Because 8 = 2³', 'Exactly 4 numbers are even and exactly 4 are prime, so both are fair coins', 'Because X and Y are independent', 'Because 2 is both even and prime'], a: 1, w: 'Evens: 2, 4, 6, 8. Primes: 2, 3, 5, 7. Each indicator is 1 with probability 1/2, which is 1 bit.' },
+    { q: 'What is p(Y = prime | X = odd)?', o: ['1/4', '1/2', '3/4', '3/8'], a: 2, w: 'The odd numbers are 1, 3, 5, 7, and three of them (3, 5, 7) are prime. So 3/4. (3/8 is the joint probability p(odd, prime).)' },
+    { q: 'In Eq. 6.52, the terms are weighted by ____ but the logs use ____.', o: ['p(y|x), p(x,y)', 'p(x,y), p(y|x)', 'p(x), p(y)', 'p(y), p(y|x)'], a: 1, w: 'H(Y|X) = −Σ p(x,y) log p(y|x): weight by how often each cell happens, measure surprise with the conditional.' },
+    { q: 'Given H(Y) = 1 and H(Y|X) = 0.81, the mutual information is…', o: ['1.81 bits', '0.81 bits', '0.19 bits', '0.5 bits'], a: 2, w: '1 − 0.81 = 0.19 bits. Parity tells you a little about primality, but not much.' },
+    { q: 'Learning n is even, your uncertainty about "prime" drops from 1 bit to 0.81 bits. Is there an observation where it would go up?', o: ['Yes, learning n is odd', 'No: for this table both rows have 0.81 bits, so neither observation increases it', 'Yes, always for one of the rows', 'Only if N = 8'], a: 1, w: 'Both rows are 1:3 or 3:1 splits with entropy 0.81 < 1. In general a single observation can increase entropy (see the "confusing observation" in §6.1.4), but only the average is guaranteed to drop.' }
+  ],
+  cmi: [
+    { q: 'X, Y are independent fair coins and Z = X ⊕ Y. What are I(X;Y) and I(X;Y|Z)?', o: ['0 and 0', '1 and 0', '0 and 1 bit', '1 and 1 bit'], a: 2, w: 'Alone, Y is independent of X. Given Z, X = Y ⊕ Z exactly, so Y reveals all of X\'s 1 bit. Conditioning created dependence.' },
+    { q: 'X and Y are both noisy copies of a common cause Z. What is I(X;Y|Z)?', o: ['0', 'Equal to I(X;Y)', 'Larger than I(X;Y)', '1 bit'], a: 0, w: 'Given Z, the noise in X and Y is independent, so each slice p(x,y|z) factorizes. All of their dependence came through Z.' },
+    { q: 'Equation 6.56 defines I(X;Y|Z) as…', o: ['I(X;Y) − I(X;Z)', 'the MI inside each slice Z = z, averaged with weights p(z)', 'the MI at the most likely value of z', 'H(X,Y,Z) − H(Z)'], a: 1, w: 'E over p(Z) of the slice MI. In Play, it\'s the weighted average of the two slice values.' },
+    { q: 'The chain rule I(Z,Y;X) = I(Z;X) + I(Y;X|Z) says…', o: ['Y and Z contribute independently', 'the total info from (Y, Z) is what Z gives plus what Y adds beyond Z', 'I(Y;X|Z) ≤ I(Z;X)', 'the order matters for the total'], a: 1, w: 'Reveal Z, then count only the new information Y adds. The two orderings give different pieces but the same total.' },
+    { q: 'Compared with entropy, conditioning on Z can make mutual information…', o: ['only smaller', 'only larger', 'either smaller or larger', 'unchanged'], a: 2, w: 'Common cause: smaller (to 0). XOR: larger (0 → 1 bit). Entropy, by contrast, can only go down on average when you condition.' }
+  ],
+  gauss: [
+    { q: 'X, Y jointly Gaussian with ρ = 0.6. What is I(X;Y) in bits?', o: ['0.36', '0.32', '0.60', '0.64'], a: 1, w: '−½ log₂(1 − 0.36) = −½ log₂ 0.64 = −½ (−0.644) ≈ 0.32 bits.' },
+    { q: 'What happens to I(X;Y) as ρ → 1?', o: ['It approaches 1 bit', 'It approaches H(X)', 'It grows without bound (→ ∞)', 'It approaches 0'], a: 2, w: 'Y = X exactly. For continuous variables, knowing X\'s real value exactly takes infinitely many bits, so −½ log(1 − ρ²) → ∞.' },
+    { q: 'Doubling σ (the variance of both X and Y) while keeping ρ fixed changes the MI by…', o: ['+1 bit', '×2', 'Nothing: σ cancels out', '−1 bit'], a: 2, w: 'Eq. 6.69 → 6.70: every (2πeσ²) factor cancels. MI doesn\'t depend on units or scale, unlike differential entropy itself.' },
+    { q: 'How do ρ = 0.8 and ρ = −0.8 compare?', o: ['ρ = 0.8 has more MI', 'ρ = −0.8 has more MI', 'Same MI: only ρ² matters', 'ρ = −0.8 has negative MI'], a: 2, w: 'Knowing Y predicts X equally well whether the line slopes up or down.' },
+    { q: 'y = x² + small noise, with x symmetric around 0. What do correlation and MI say?', o: ['Both ≈ 0', 'Correlation ≈ 0, but MI is large', 'Both large', 'Correlation large, MI ≈ 0'], a: 1, w: 'The positive and negative halves cancel in ρ, but y is almost a deterministic function of x. MI catches non-linear dependence, so it\'s called a generalized correlation.' },
+    { q: 'With n fixed, using more and more histogram bins tends to make the binned MI estimate…', o: ['more accurate', 'biased upward', 'biased toward 0', 'unaffected'], a: 1, w: 'Sparse cells with 0 or 1 points look like structure, even for independent data. Try "Independent" with 40 bins and n = 100.' }
+  ],
+  dpi: [
+    { q: 'X → Y → Z is a Markov chain. Which must be true?', o: ['I(X;Z) ≥ I(X;Y)', 'I(X;Y) ≥ I(X;Z)', 'I(X;Y) = I(Y;Z)', 'I(X;Z) = 0'], a: 1, w: 'The data processing inequality: Z is computed from Y, so it can\'t know more about X than Y does.' },
+    { q: 'The key step in the proof is that I(X;Z|Y) = 0. Why?', o: ['Because Z is noisy', 'Because X ⊥ Z | Y in a Markov chain', 'Because I(X;Y) ≥ 0', 'Because H(Z) ≤ H(Y)'], a: 1, w: 'Once Y is known, X carries no further information about Z, so that term of the chain-rule expansion vanishes.' },
+    { q: 'Each telephone hop flips bits with ε = 0.1. After two hops, the total flip probability is…', o: ['0.2', '0.18', '0.01', '0.19'], a: 1, w: 'A bit ends up flipped if exactly one hop flips it: 2 · 0.1 · 0.9 = 0.18. (Two flips cancel out.) That matches ½(1 − 0.8²) = 0.18.' },
+    { q: 'Majority vote of 3 noisy copies has the same best-guess accuracy as using all 3 copies. Does it keep all the information?', o: ['Yes, same accuracy means same information', 'No: it merges patterns with different likelihood ratios, so I(X;Z) < I(X;Y)', 'It has more information', 'Only when ε = 0'], a: 1, w: '000 and 001 both map to 0 but carry different confidence. MI measures confidence too, so it drops even though the guess doesn\'t change.' },
+    { q: 'When does I(X;Z) = I(X;Y) for Z = f(Y)?', o: ['Never', 'When f keeps everything relevant about X, e.g. an invertible map or a sufficient statistic like the count', 'Only when f is the identity', 'When Z is binary'], a: 1, w: 'Equality means I(X;Y|Z) = 0: nothing Y knew about X was thrown away. "Count of 1s" and "sort the copies" both achieve it.' }
+  ],
+  suff: [
+    { q: 's(D) is a sufficient statistic for θ when…', o: ['I(θ; s(D)) = I(θ; D)', 'I(θ; s(D)) = 0', 's(D) has the same entropy as D', 's(D) = D'], a: 0, w: 'DPI gives I(θ; s(D)) ≤ I(θ; D); sufficiency is the equality case. Nothing about θ was lost.' },
+    { q: 'For N coin flips, a minimal sufficient statistic is…', o: ['the full sequence', 'the first flip', 'N₁ (number of heads), with N', 'whether N₁ is odd'], a: 2, w: 'The likelihood θ^N₁(1−θ)^(N−N₁) depends on the data only through N₁ and N.' },
+    { q: 'HHT and THH (N = 3) give posteriors over θ that are…', o: ['different, order matters', 'identical', 'identical only with a uniform prior', 'undefined'], a: 1, w: 'Both have N₁ = 2, so their likelihoods are the same function of θ, for any prior. Try "Shuffle the order".' },
+    { q: 'Minimal sufficient means s(D) = f(s′(D)) for every sufficient s′. Intuitively:', o: ['s has the most information', 's is the most compressed summary that still loses nothing about θ', 's is always a single number', 's is unbiased'], a: 1, w: 'Every other sufficient statistic carries s plus some redundant extra detail, as in the chain θ → s(D) → s′(D) → D.' },
+    { q: 'For the mean μ of a Gaussian with known variance, what do you need to keep?', o: ['All the data points', 'The sample mean and N', 'The median', 'The largest and smallest values'], a: 1, w: 'The likelihood depends on the data only through Σxₙ, equivalently x̄ and N.' }
+  ]
+};
+(function () {
+  let total = 0, right = 0;
+  const scoreEl = $('#score');
+  const paint = () => { scoreEl.innerHTML = `Quiz <b>${right}</b> / ${total}`; };
+  $$('[data-quiz]').forEach(box => {
+    const qs = QUIZ[box.dataset.quiz]; total += qs.length;
+    let local = 0;
+    function build() {
+      box.innerHTML = qs.map((q, i) => `<div class="qq" data-i="${i}"><p class="qt"><span class="qn">Q${i + 1}</span>${q.q}</p><div class="opts">${q.o.map((o, j) => `<button class="opt" data-j="${j}">${o}</button>`).join('')}</div></div>`).join('') +
+        `<div class="quizfoot"><span class="qs">0 / ${qs.length} correct</span><button class="b qreset">Reset these questions</button></div>`;
+    }
+    build();
+    box.addEventListener('click', e => {
+      if (e.target.closest('.qreset')) { right -= local; local = 0; build(); paint(); return; }
+      const b = e.target.closest('.opt'); if (!b || b.disabled) return;
+      const card = b.closest('.qq'), q = qs[+card.dataset.i], ok = +b.dataset.j === q.a;
+      $$('.opt', card).forEach((x, k) => { x.disabled = true; if (k === q.a) x.classList.add('right'); });
+      if (!ok) b.classList.add('wrong');
+      card.insertAdjacentHTML('beforeend', `<p class="why-ans"><b class="${ok ? 'ok' : 'no'}">${ok ? 'Correct.' : 'Not quite.'}</b> ${q.w}</p>`);
+      if (ok) { local++; right++; }
+      $('.qs', box).textContent = `${local} / ${qs.length} correct`;
+      paint();
+    });
+  });
+  paint();
+})();
+
+/* ---------- Rail highlight ---------- */
+(function () {
+  const links = $$('#rail a'), secs = links.map(a => $(a.getAttribute('href')));
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { if (e.isIntersecting) links.forEach(l => l.classList.toggle('on', l.getAttribute('href') === '#' + e.target.id)); });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  secs.forEach(s => s && io.observe(s));
+})();
+})();
+</script>
+
+</body>
+</html>
